@@ -2,7 +2,7 @@ import pygame
 from level import Level, Wall
 
 WIDTH, HEIGHT = 1080, 720
-FPS = 60
+FPS = 120
 
 class GameStateManager:
     def __init__(self): # initialises full game
@@ -29,7 +29,7 @@ class GameStateManager:
     # runtime functions
     def run(self):
         while self.running:
-            dt = self.clock.tick(FPS) / 1000
+            dt = self.clock.tick(FPS) / 1000    
             self.handle_events()
             self.update(dt)
             self.draw()

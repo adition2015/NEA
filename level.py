@@ -15,6 +15,7 @@ class Level:
     
     def update(self, dt):
         self.player.update(dt)
+        self._resolve_collisions()
 
     def draw(self, screen):
         #clear surface every frame:
@@ -31,6 +32,31 @@ class Level:
     def handle_input(self, event):
         self.player.handle_input(event)
 
+    def _resolve_collisions(self):
+        player_rect = self.player.get_collision_rect()
+
+        for wall in self.walls:
+            if player_rect.colliderect(wall.rect):
+                offset = self._calculate_pushout(player_rect, wall.rect)
+                self.player.resolve_collision(offset)
+        
+    def _calculate_pushout(self, player_rect: pygame.Rect, wall_rect: pygame.Rect):
+        overlap_left  = wall_rect.right  - player_rect.left
+        overlap_right = player_rect.right - wall_rect.left
+        overlap_top   = wall_rect.bottom - player_rect.top
+        overlap_bottom= player_rect.bottom - wall_rect.top
+
+        # Pick the smallest overlap — that's the axis to resolve on
+        min_x = overlap_left  if overlap_left < overlap_right  else -overlap_right
+        min_y = overlap_top   if overlap_top  < overlap_bottom else -overlap_bottom
+
+        if abs(min_x) < abs(min_y):
+            return pygame.Vector2(min_x, 0)
+        else:
+            return pygame.Vector2(0, min_y)
+
+
+                
 
 
 class Wall:

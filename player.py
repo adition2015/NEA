@@ -8,6 +8,8 @@ MOVEMENT_TRANSITIONS = {
     3: (2, 1),
 }
 
+level_offset = pygame.Vector2(40, 40)
+
 class Player(pygame.sprite.Sprite):
     def __init__(self, position: pygame.Vector2, direction: pygame.Vector2):
         super().__init__()
@@ -25,16 +27,16 @@ class Player(pygame.sprite.Sprite):
 
     def _build_image(self) -> pygame.Surface:
         """Build the player's base sprite surface (facing right = 0 degrees)."""
-        surface = pygame.Surface((40, 40), pygame.SRCALPHA)  # SRCALPHA = transparent background
+        surface = pygame.Surface((32, 32), pygame.SRCALPHA)  # SRCALPHA = transparent background
 
         # Body
-        pygame.draw.circle(surface, (60, 120, 220), (20, 20), 16)
+        pygame.draw.circle(surface, (60, 120, 220), (16, 16), 16)
         # Direction indicator (nose) — points RIGHT by default (angle 0)
-        pygame.draw.polygon(surface, (255, 255, 255), [(28, 20), (20, 13), (20, 27)])
+        pygame.draw.polygon(surface, (255, 255, 255), [(24, 16), (16, 7), (16, 23)])
         return surface
 
     def _rotate_to_mouse(self):
-        mouse_pos = pygame.Vector2(pygame.mouse.get_pos())
+        mouse_pos = pygame.Vector2(pygame.mouse.get_pos()) - level_offset
         diff = mouse_pos - self.position
 
         if diff.length() > 0:
@@ -43,7 +45,11 @@ class Player(pygame.sprite.Sprite):
             self.angle = pygame.Vector2(1, 0).angle_to(self.direction)
 
     def handle_input(self, event):
-        self.handle_movement_mode(event)      
+        self.handle_movement_mode(event)  
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_w:
+            self.move_condition = True
+        if event.type == pygame.KEYUP and event.key == pygame.K_w:
+            self.move_condition = False
 
     def handle_movement_mode(self, event: pygame.event.Event):
         """Call this from your event loop, passing each KEYDOWN event."""
@@ -53,10 +59,19 @@ class Player(pygame.sprite.Sprite):
                 self.movement_mode = transitions[0] if event.key == pygame.K_LSHIFT else transitions[1]
 
     def move(self, dt: float):
-        keys = pygame.key.get_pressed()
-        if pygame.K_w in keys:
+        if self.move_condition:
             self.position += self.direction * SPEED[self.movement_mode] * dt
             self.rect.center = (int(self.position.x), int(self.position.y))
+
+    def get_collision_rect(self) -> pygame.Rect:
+        "exposes self.rect for level to use"
+        return self.rect
+    
+    def resolve_collision(self, offset: pygame.Vector2):
+        self.position += offset
+        self.rect.center = (int(self.position.x), int(self.position.y))
+
+
 
     def draw(self, surface: pygame.Surface):
         """Rotate fresh from base_image every draw call — no cumulative degradation."""
@@ -67,3 +82,4 @@ class Player(pygame.sprite.Sprite):
     def update(self, dt: float):
         self._rotate_to_mouse()
         self.move(dt)
+
