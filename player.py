@@ -50,6 +50,7 @@ class Player(pygame.sprite.Sprite):
             self.move_condition = True
         if event.type == pygame.KEYUP and event.key == pygame.K_w:
             self.move_condition = False
+        
 
     def handle_movement_mode(self, event: pygame.event.Event):
         """Call this from your event loop, passing each KEYDOWN event."""

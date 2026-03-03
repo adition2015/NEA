@@ -1,8 +1,7 @@
 import pygame
 from level import Level, Wall
-
-WIDTH, HEIGHT = 1080, 720
-FPS = 120
+from settings import *
+from utils import *
 
 class GameStateManager:
     def __init__(self): # initialises full game
@@ -11,7 +10,7 @@ class GameStateManager:
         self.init_game_state()
         
         if self.game_state == "playing":
-            self.load_level()
+            self.init_load_level()
 
     # initialisation functions
     def init_pygame(self):
@@ -29,21 +28,22 @@ class GameStateManager:
     # runtime functions
     def run(self):
         while self.running:
-            dt = self.clock.tick(FPS) / 1000    
+            dt = self.clock.tick(FPS) / 1000 
+            fps = self.clock.get_fps()   
             self.handle_events()
             self.update(dt)
-            self.draw()
+            self.draw(fps)
           
 
     def update(self, dt):
         if self.game_state == "playing":
             self.level.update(dt)
 
-    def draw(self):
+    def draw(self, fps):
         self.screen.fill((0, 0, 0))
 
         if self.game_state == "playing":
-            self.level.draw(self.screen)
+            self.level.draw(self.screen, fps)
 
         pygame.display.flip()
 
@@ -59,14 +59,9 @@ class GameStateManager:
                 self.level.handle_input(event) # handle level input
 
             
-    def load_level(self):
-        # test instance
-        self.level = Level(0)
-        borders = [Wall(0, 0, 1000, 5), 
-           Wall(0, 0, 5, 640),
-           Wall(0, 635, 1000, 5),
-           Wall(995, 0, 5, 640)]
-        self.level.walls += borders
+    def init_load_level(self):
+        # test level
+        data = load_level(1)
+        self.level = Level(1, data)
         
-
 
