@@ -20,6 +20,9 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.base_image.get_rect(center=(int(self.position.x), int(self.position.y)))
         self.angle = 0
 
+        # --- condiitons ---
+        self.move_condition = False
+
     def _build_image(self) -> pygame.Surface:
         """Build the player's base sprite surface (facing right = 0 degrees)."""
         surface = pygame.Surface((40, 40), pygame.SRCALPHA)  # SRCALPHA = transparent background
@@ -39,6 +42,8 @@ class Player(pygame.sprite.Sprite):
             # angle_to measures from self -> target, negate because pygame Y-axis is flipped
             self.angle = pygame.Vector2(1, 0).angle_to(self.direction)
 
+    def handle_input(self, event):
+        self.handle_movement_mode(event)      
 
     def handle_movement_mode(self, event: pygame.event.Event):
         """Call this from your event loop, passing each KEYDOWN event."""
@@ -49,7 +54,7 @@ class Player(pygame.sprite.Sprite):
 
     def move(self, dt: float):
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_w]:
+        if pygame.K_w in keys:
             self.position += self.direction * SPEED[self.movement_mode] * dt
             self.rect.center = (int(self.position.x), int(self.position.y))
 
