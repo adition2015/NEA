@@ -35,6 +35,11 @@ class Level:
 
         # draw player and other dynamic level objects
         self.player.draw(self.surface)
+        for i in self.doors:
+            if i.is_open == False:
+                i.draw(self.surface, (75, 57, 41))
+            else:
+                i.draw(self.surface, (113, 93, 76))
 
         # draw static level objects
         for i in self.walls:
@@ -128,8 +133,8 @@ class Door:
         else:
             self.open(collidable_rects)
 
-    def draw(self, surface):
-        pygame.draw.rect(surface, (149, 69, 53), self.rect) # change colour on open
+    def draw(self, surface, colour: tuple):
+        pygame.draw.rect(surface, colour, self.rect) # change colour on open
     
     
 
