@@ -29,6 +29,8 @@ def level_creation(fields: dict, destination: str):
             return float(raw)
         elif expected_type == list:
             return json.loads(raw)  # e.g. "[1, 2, 3]"
+        elif expected_type == tuple:
+            return tuple(raw)  
         else:
             return raw  # str fallback
 
@@ -81,6 +83,12 @@ door_fields = {
     "orientation": int,
 }
 
+enemy_fields = {
+    "position": tuple,
+    "direction": tuple,
+    "patrol_points": list
+}
+
 def load_level(level_id: int) -> dict:
         """
         Loads wall and door data from JSON files for a given level ID.
@@ -91,23 +99,27 @@ def load_level(level_id: int) -> dict:
                 content = f.read().strip()
                 return json.loads(content) if content else []
 
-        walls_raw = read_json(f"levels/level_{level_id:02d}_walls.json")
-        doors_raw = read_json(f"levels/level_{level_id:02d}_doors.json")
+        walls_raw = read_json(f"levels/Level{level_id:01d}/level_{level_id:02d}_walls.json")
+        doors_raw = read_json(f"levels/Level{level_id:01d}/level_{level_id:02d}_doors.json")
+        enemies_raw = read_json(f"levels/Level{level_id:01d}/level_{level_id:02d}_enemies.json")
 
         walls = [(e["x"], e["y"], e["width"], e["height"]) for e in walls_raw]
         doors = [(e["x"], e["y"], e["orientation"]) for e in doors_raw]
+        enemies = [[(e["position"], e["direction"], e["patrol_points"]) for e in enemies_raw]]
 
         return {
             "walls": walls,
             "doors": doors,
+            "enemies": enemies
         }
 
 #level_creation(wall_fields, "levels/level_01_walls.json")
 #level_creation(door_fields, "levels/level_01_doors.json")
+level_creation(enemy_fields, "levels\Level1\level_01_enemies.json")
 
 # --- draw debug ---
 
-def draw_debug(surface, data: dict, pos=(10, 10), size=16, colour=(0, 255, 0)):
+def draw_debug(surface, data: dict, pos=(10, 10), size=10, colour=(0, 255, 0)):
     """
     data: any dict of label->value pairs you want displayed
     """

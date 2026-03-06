@@ -2,6 +2,7 @@ import pygame, json
 from player import Player
 from settings import *
 from utils import draw_debug
+from enemy import Enemy
 
 # Links:
 "https://www.youtube.com/watch?v=UT_tKPLejyU" # pygame layers for drawing on screen
@@ -24,6 +25,7 @@ class Level:
         self.surface = pygame.Surface(level_res, pygame.SRCALPHA)
         self.walls = [] # all walls have a rect attribute - this will be called for collisions
         self.doors = []# all doors have a rect attribute - if closed, will be called for collisions
+        self.enemies = []
         self._load_level(data)
         
 
@@ -37,13 +39,15 @@ class Level:
 
     def update(self, dt):
         self.player.update(dt)
+        for enemy in self.enemies:
+            enemy.update(dt, self.player.position)   # chase the player
         self._resolve_collisions()
         self.handle_interaction()
 
     def draw(self, screen, fps):
         #clear surface every frame:
         self.surface.fill((20, 20, 20))
-
+        self.graph.draw_debug(self.surface)
         # draw player and other dynamic level objects
        
         # -- doors --
@@ -52,6 +56,9 @@ class Level:
 
         # -- player --
         self.player.draw(self.surface)
+
+        for enemy in self.enemies:
+            enemy.draw(self.surface)
 
         # draw static level objects
         for i in self.walls:
@@ -65,9 +72,9 @@ class Level:
             "fps": round(fps)
         })
 
+        # self.draw_grid(50)
+
         # nav polygon
-        points = self.nav_polygon()
-        pygame.draw.polygon(self.surface, (255, 0 , 0, 128), points)
 
         screen.blit(self.surface, level_offset)
 
@@ -111,6 +118,13 @@ class Level:
                 offset = self._calculate_pushout(player_rect, rect)
                 self.player.resolve_collision(offset)
         
+        for enemy in self.enemies:
+            enemy_rect = enemy.get_collision_rect()
+            for wall in self.walls:
+                if enemy_rect.colliderect(wall.rect):
+                    offset = self._calculate_pushout(enemy_rect, wall.rect)
+                    enemy.resolve_collision(offset)
+        
     def _calculate_pushout(self, player_rect: pygame.Rect, wall_rect: pygame.Rect):
         overlap_left  = wall_rect.right  - player_rect.left
         overlap_right = player_rect.right - wall_rect.left
@@ -126,28 +140,13 @@ class Level:
         else:
             return pygame.Vector2(0, min_y)
     
-    def nav_polygon(self):
-        points = []
-        cr = self.collision_rects
-        for rect in cr:
-            corners = [rect.topleft, rect.bottomleft, rect.topright, rect.bottomright]
-            # filter corners so that any points with x = 0, 1080, or y = 0, 720 are omitted
-            for corner in corners:
-                if corner[0] in [0, 1080] or corner[1] in [0, 720]:
-                    corners.remove(corner)
-            points.extend(corners)
-        # corners would also be meeting points between rects
-        for rect in cr:
-            for i in range(len(cr)):
-                intersections = []
-                if rect != cr[i]:
-                    lines = [(cr[i].topleft, cr[i].bottomleft), (cr[i].bottomright, cr[i].bottomleft), (cr[i].topleft, cr[i].bottomleft), (cr[i].topright, cr[i].bottomright)]
-                    for line in lines:
-                        intersect_pts = rect.clipline(line)
-                        if intersect_pts:
-                            intersections.extend(list(intersect_pts))
-        points.extend(intersections)
-        return points
+    def draw_grid(self, cell_size):
+        cols, rows = level_res[0] // cell_size, level_res[1] // cell_size
+        for i in range(round(cols)):
+            for j in range(round(rows)):
+                pygame.draw.line(self.surface, (0, 0, 255), (0, cell_size*j), (level_res[0], cell_size*j))
+                pygame.draw.line(self.surface, (0, 0, 255), (cell_size*i, 0), (cell_size*i, level_res[1]))
+    
 
 # fix nav polygon so that it takes points in order that are connected then form a polygon
 
