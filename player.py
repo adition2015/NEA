@@ -22,8 +22,11 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.base_image.get_rect(center=(int(self.position.x), int(self.position.y)))
         self.angle = 0
 
-        # --- condiitons ---
+        # --- condiitons - accessed by level object --- 
         self.move_condition = False
+
+        # --- signals where conditional logic is performed by level object --- 
+        self.interact_signal = False
 
     def _build_image(self) -> pygame.Surface:
         """Build the player's base sprite surface (facing right = 0 degrees)."""
@@ -50,7 +53,11 @@ class Player(pygame.sprite.Sprite):
             self.move_condition = True
         if event.type == pygame.KEYUP and event.key == pygame.K_w:
             self.move_condition = False
-        
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_e:
+            # check for interaction - handled by level:
+            # send an interaction signal to the Level object, which checks if a interactable is within the player's reachable radius - e.g. 50 pixels from player.center
+            self.interact_signal = True
+            # level tries interaction, if condition not met, resets interact signal to False     
 
     def handle_movement_mode(self, event: pygame.event.Event):
         """Call this from your event loop, passing each KEYDOWN event."""
@@ -71,7 +78,6 @@ class Player(pygame.sprite.Sprite):
     def resolve_collision(self, offset: pygame.Vector2):
         self.position += offset
         self.rect.center = (int(self.position.x), int(self.position.y))
-
 
 
     def draw(self, surface: pygame.Surface):
