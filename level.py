@@ -2,6 +2,7 @@ import pygame, json
 from player import Player
 from settings import *
 from utils import draw_debug
+from navmesh import NavMesh
 
 # Links:
 "https://www.youtube.com/watch?v=UT_tKPLejyU" # pygame layers for drawing on screen
@@ -26,13 +27,21 @@ class Level:
         self.doors = []# all doors have a rect attribute - if closed, will be called for collisions
         self._load_level(data)
         
+        
 
         # -- initialise collision rects -- 
         self.collision_rects = [wall.rect for wall in self.walls]
         self.interactables = [door for door in self.doors]
+
+        # --- initialise NavMesh ---
+        self.navmesh = NavMesh(level_res, self.collision_rects) # doors shouldn't be considered collision rects as if enemy near door, it opens door.
+
+
         # initialises door rects
         for i in self.doors:
             i.interact(self.collision_rects)
+
+        
 
 
     def update(self, dt):
@@ -66,8 +75,16 @@ class Level:
         })
 
         # nav polygon
-        points = self.nav_polygon()
-        pygame.draw.polygon(self.surface, (255, 0 , 0, 128), points)
+        for poly in self.navmesh.polys:
+            for n in poly.neighbours:
+
+                pygame.draw.line(
+                    self.surface,
+                    (255,0,0),
+                    poly.center,
+                    n.center,
+                    1
+                )
 
         screen.blit(self.surface, level_offset)
 
@@ -126,28 +143,6 @@ class Level:
         else:
             return pygame.Vector2(0, min_y)
     
-    def nav_polygon(self):
-        points = []
-        cr = self.collision_rects
-        for rect in cr:
-            corners = [rect.topleft, rect.bottomleft, rect.topright, rect.bottomright]
-            # filter corners so that any points with x = 0, 1080, or y = 0, 720 are omitted
-            for corner in corners:
-                if corner[0] in [0, 1080] or corner[1] in [0, 720]:
-                    corners.remove(corner)
-            points.extend(corners)
-        # corners would also be meeting points between rects
-        for rect in cr:
-            for i in range(len(cr)):
-                intersections = []
-                if rect != cr[i]:
-                    lines = [(cr[i].topleft, cr[i].bottomleft), (cr[i].bottomright, cr[i].bottomleft), (cr[i].topleft, cr[i].bottomleft), (cr[i].topright, cr[i].bottomright)]
-                    for line in lines:
-                        intersect_pts = rect.clipline(line)
-                        if intersect_pts:
-                            intersections.extend(list(intersect_pts))
-        points.extend(intersections)
-        return points
 
 # fix nav polygon so that it takes points in order that are connected then form a polygon
 
@@ -200,7 +195,11 @@ class Door:
         else:
             colour = (75, 57, 41)
         pygame.draw.rect(surface, colour, self.rect) # change colour on open
-    
+
+# consider a cell of rects size 
+
+
+
 # creating a level polygon
 # we can consider all corners of each rect, then consider a polygon of those rects. The border rects are uniform for all levels, so we can start with points (5, 5), (5, 715), (1075, 5), (1075, 715) in our polygon points. Consider all corners of rects within this polygon and add it to the points.
 
