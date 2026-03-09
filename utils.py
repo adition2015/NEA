@@ -107,7 +107,7 @@ def load_level(level_id: int) -> dict:
 
 # --- draw debug ---
 
-def draw_debug(surface, data: dict, pos=(10, 10), size=16, colour=(0, 255, 0)):
+def draw_debug(surface, data: dict, pos=(10, 10), size=12, colour=(0, 255, 0)):
     """
     data: any dict of label->value pairs you want displayed
     """

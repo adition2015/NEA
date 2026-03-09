@@ -1,5 +1,6 @@
 import pygame, json
 from player import Player
+from enemy import Enemy
 from settings import *
 from utils import draw_debug
 from navmesh import NavMesh
@@ -29,25 +30,47 @@ class Level:
         
         
 
-        # -- initialise collision rects -- 
+        # build lists of collision rectangles.  ``collision_rects`` is the
+        # authoritative set used for physics and door interactions; it will be
+        # mutated whenever a door opens or closes.  the navigation mesh is
+        # constructed from *walls alone* and is never updated because doors are
+        # effectively always passable (enemies will open them if necessary).
         self.collision_rects = [wall.rect for wall in self.walls]
         self.interactables = [door for door in self.doors]
 
-        # --- initialise NavMesh ---
-        self.navmesh = NavMesh(level_res, self.collision_rects) # doors shouldn't be considered collision rects as if enemy near door, it opens door.
+        # header: take a snapshot of the static walls and build the mesh from
+        # that copy.  doors are deliberately omitted.
+        static_walls = [w.rect.copy() for w in self.walls]
+        self.navmesh = NavMesh(level_res, static_walls)
+
+        # now initialise door geometry in the physics set; this has no bearing
+        # on the mesh and only affects collisions for player/enemies.
+        for door in self.doors:
+            door.interact(self.collision_rects)
 
 
-        # initialises door rects
-        for i in self.doors:
-            i.interact(self.collision_rects)
+        # initialise enemies after navMesh
+        self.enemies = [
+            Enemy((100, 100), (0, 1), [(100, 100), (300, 400)])
+        ]
 
-        
+    def rebuild_navmesh(self):
+        """No longer required.
+
+        Doors are always treated as passable in the mesh – enemies will open them
+        automatically – so the mesh only depends on the permanent wall geometry.
+        This stub remains for backward‑compatibility but is never called by the
+        current code.
+        """
+        pass
 
 
     def update(self, dt):
         self.player.update(dt)
         self._resolve_collisions()
         self.handle_interaction()
+        for i in self.enemies:
+           i.update(dt, self.navmesh)
 
     def draw(self, screen, fps):
         #clear surface every frame:
@@ -62,22 +85,33 @@ class Level:
         # -- player --
         self.player.draw(self.surface)
 
+        # -- enemy --
+        for i in self.enemies:
+            i.draw(self.surface)
+
         # draw static level objects
         for i in self.walls:
             i.draw(self.surface)
         
 
+
         # debug:
         draw_debug(screen, {
-            "pos":   self.player.position,
+            "pos":   self.enemies[0].position,
             "movement_mode": self.player.movement_mode,
             "fps": round(fps)
         })
 
         # nav polygon
         for poly in self.navmesh.polys:
+            # Draw polygon outline
+            points = list(poly.poly.exterior.coords)
+            # pygame.draw.polygon(self.surface, (255, 0, 255), points, 5)  # Green outline
+            
+            # Draw center point
+            pygame.draw.circle(self.surface, (0, 255, 0), (int(poly.center[0]), int(poly.center[1])), 3)
+            
             for n in poly.neighbours:
-
                 pygame.draw.line(
                     self.surface,
                     (255,0,0),
@@ -116,17 +150,26 @@ class Level:
         interactable = self.check_interaction()
         if interactable:
             interactable.interact(self.collision_rects)
+            # the mesh does not depend on the door state – doors are always
+            # passable – so we never rebuild it.  collision_rects will still be
+            # updated for physics though.
 
     def handle_input(self, event):
         self.player.handle_input(event)
 
     def _resolve_collisions(self):
         player_rect = self.player.get_collision_rect()
+        enemy_rects = [enemy.rect for enemy in self.enemies]
 
         for rect in self.collision_rects:
             if player_rect.colliderect(rect):
                 offset = self._calculate_pushout(player_rect, rect)
                 self.player.resolve_collision(offset)
+            for enemy_rect in enemy_rects:
+                if enemy_rect.colliderect(rect):
+                    offset = self._calculate_pushout(enemy_rect, rect)
+                    enemy_rect.position += offset
+                    enemy_rect.center = (int(enemy_rect.position.x), int(enemy_rect.position.y))
         
     def _calculate_pushout(self, player_rect: pygame.Rect, wall_rect: pygame.Rect):
         overlap_left  = wall_rect.right  - player_rect.left

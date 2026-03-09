@@ -27,31 +27,90 @@ class NavMesh:
         obstacle_union = unary_union(obstacles)
 
         # walkable polygon
-        walkable = level_poly.difference(obstacle_union)
+        self.walkable = level_poly.difference(obstacle_union)
 
-        triangles = triangulate(walkable) # splits walkable area into triangles
+        # Use mapbox_earcut for proper triangulation with holes
+        import mapbox_earcut as earcut
+        import numpy as np
+        from shapely.geometry import Polygon
+        
+        # Prepare coordinates for earcut
+        exterior_coords = np.array(list(self.walkable.exterior.coords)[:-1])  # Remove closing duplicate
+        hole_coords = []
+        hole_indices = []
+        index_offset = len(exterior_coords)
+        
+        for interior in self.walkable.interiors:
+            coords = np.array(list(interior.coords)[:-1])
+            hole_coords.append(coords)
+            hole_indices.append(index_offset)
+            index_offset += len(coords)
+        
+        # Combine all vertices
+        all_vertices = np.vstack([exterior_coords] + hole_coords)
+        hole_indices = np.array(hole_indices + [len(all_vertices)], dtype=np.uint32)
+        
+        # Triangulate
+        triangles_indices = earcut.triangulate_float64(all_vertices, hole_indices)
+        
+        # Convert indices back to triangles
+        triangles = []
+        for i in range(0, len(triangles_indices), 3):
+            p1 = tuple(all_vertices[triangles_indices[i]])
+            p2 = tuple(all_vertices[triangles_indices[i+1]])
+            p3 = tuple(all_vertices[triangles_indices[i+2]])
+            triangle = Polygon([p1, p2, p3])
+            triangles.append(triangle)
 
-        self.polys = [NavPoly(p) for p in triangles]
+        clean_tris = []
+
+        self.polys = [NavPoly(p) for p in clean_tris]
         
         self._build_neighbours()
 
     
     def _build_neighbours(self):
-        for p1 in self.polys:
-            for p2 in self.polys:
+        """Populate each polygon's neighbour list.
 
-                if p1 == p2:
+        The original implementation treated any two triangles whose borders
+        touched as neighbours.  Shapely's ``touches`` returns true for a
+        shared *point* as well as a shared edge.  When two triangles only
+        meet at a single vertex the straight line between their centres can
+        cut straight through a wall or obstacle, which is exactly the bug
+        reported by the player - enemies were able to walk through corners
+        when the path was calculated via those spurious links.
+
+        To fix this we only create a connection if the intersection of the
+        two polygons is a line segment (or collection of segments) with
+        positive length.  That guarantees that the navigation graph only
+        links polygons that share a real edge, not merely a corner.
+        """
+
+        for i, p1 in enumerate(self.polys):
+            for p2 in self.polys[i+1:]:
+                # skip self and already-checked pairs
+                if p1 is p2:
                     continue
 
                 if p1.poly.touches(p2.poly):
-                    p1.neighbours.append(p2)
+                    inter = p1.poly.intersection(p2.poly)
+                    # ``inter`` will be a Point when shapes only share a
+                    # corner.  we want a LineString/MultiLineString with
+                    # non‑zero length.
+                    if hasattr(inter, "length") and inter.length > 0:
+                        p1.neighbours.append(p2)
+                        p2.neighbours.append(p1)
+
     
     def find_poly(self, pos):
 
         point = Point(pos)
 
+        # ``contains`` is false if the point lies exactly on the boundary.
+        # ``covers`` treats boundary points as part of the polygon, which is
+        # generally what we want for pathfinding.
         for poly in self.polys:
-            if poly.poly.contains(point):
+            if poly.poly.covers(point):
                 return poly
         
         return None
@@ -61,7 +120,7 @@ def distance(a, b):
      
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
-def astar(start_poly, goal_poly):
+def astar(nav_mesh, start_poly, goal_poly):
 
     open_set = []
     heapq.heappush(open_set, (0, start_poly))
@@ -109,21 +168,21 @@ def astar(start_poly, goal_poly):
 
 
                 heapq.heappush(open_set, (f, neighbour))
-
     return None
 
-def find_path(self, nav_mesh, start_pos, end_pos):
+def find_path(nav_mesh, start_pos, end_pos):
 
     start_poly = nav_mesh.find_poly(start_pos)
     end_poly = nav_mesh.find_poly(end_pos)
 
     if not start_poly or not end_poly:
+        # print("No path: start or end position is outside the navmesh.")
         return None
     
-    poly_path = astar(start_poly, end_poly)
+    poly_path = astar(nav_mesh, start_poly, end_poly)
 
     if not poly_path:
         return None
     
-    return [p.center for p in poly_path]
+    return [pygame.Vector2(p.center) for p in poly_path]
 
