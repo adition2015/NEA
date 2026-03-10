@@ -3,7 +3,7 @@ from player import Player
 from enemy import Enemy
 from settings import *
 from utils import draw_debug
-
+from grid_waypoint import *
 # Links:
 "https://www.youtube.com/watch?v=UT_tKPLejyU" # pygame layers for drawing on screen
 
@@ -26,8 +26,6 @@ class Level:
         self.walls = [] # all walls have a rect attribute - this will be called for collisions
         self.doors = []# all doors have a rect attribute - if closed, will be called for collisions
         self._load_level(data)
-        
-        
 
         # build lists of collision rectangles.  ``collision_rects`` is the
         # authoritative set used for physics and door interactions; it will be
@@ -42,11 +40,14 @@ class Level:
         for door in self.doors:
             door.interact(self.collision_rects)
 
+        self.graph = WaypointGraph(level_res, self.collision_rects, 50)
 
         # initialise enemies
         self.enemies = [
             Enemy((100, 100), (1, 0), [(100, 100), (300, 400)])
         ]
+
+        self.precalculate_patrol_path()
 
     def update(self, dt):
         self.player.update(dt)
@@ -84,6 +85,10 @@ class Level:
             "movement_mode": self.player.movement_mode,
             "fps": round(fps)
         })
+
+        #debug waypoints
+        for wp in self.graph.waypoints:
+            wp.draw(self.surface)
 
         screen.blit(self.surface, level_offset)
 
@@ -124,17 +129,17 @@ class Level:
 
     def _resolve_collisions(self):
         player_rect = self.player.get_collision_rect()
-        enemy_rects = [enemy.rect for enemy in self.enemies]
+        
 
         for rect in self.collision_rects:
             if player_rect.colliderect(rect):
                 offset = self._calculate_pushout(player_rect, rect)
                 self.player.resolve_collision(offset)
-            for enemy_rect in enemy_rects:
-                if enemy_rect.colliderect(rect):
-                    offset = self._calculate_pushout(enemy_rect, rect)
-                    enemy_rect.position += offset
-                    enemy_rect.center = (int(enemy_rect.position.x), int(enemy_rect.position.y))
+            for enemy in self.enemies:
+                if enemy.rect.colliderect(rect):
+                    offset = self._calculate_pushout(enemy.rect, rect)
+                    enemy.resolve_collision(offset)
+                    
         
     def _calculate_pushout(self, player_rect: pygame.Rect, wall_rect: pygame.Rect):
         overlap_left  = wall_rect.right  - player_rect.left
@@ -150,6 +155,16 @@ class Level:
             return pygame.Vector2(min_x, 0)
         else:
             return pygame.Vector2(0, min_y)
+
+    def precalculate_patrol_path(self):
+        # compute start and end wps for each enemy, call precalculate_patrol_path for each enemy:
+        for enemy in self.enemies:
+            # map patrol pts to waypoints:
+            enemy.waypoints = []
+            for i in enemy.patrol_points:
+                enemy.waypoints.append(self.graph.nearest_waypoint(i))
+                enemy.precalculate_patrol_path()
+
 
 # fix nav polygon so that it takes points in order that are connected then form a polygon
 

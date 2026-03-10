@@ -3,23 +3,30 @@ import pygame
 # create waypoints all along the level:
 class Waypoint:
     def __init__(self, pos: tuple):
-        self.pos = pygame.vector2(pos)
+        self.pos = pygame.Vector2(pos)
         self.neighbours = None
+
+    def draw(self, surface):
+        self.rect = pygame.Rect(self.pos.x, self.pos.y, 1, 1)
+        pygame.draw.rect(surface, (255, 255, 0), self.rect)
     
 
 class WaypointGraph:
     def __init__(self, level_res: tuple, collision_rects: list, res: int):
-        self.waypoints = self._gen_waypoints(level_res, collision_rects, res)
-        self.graph = self._build_waypoint_graph()
         self.res = res
+
+        # initialisation
+        self.waypoints = self._gen_waypoints(level_res, collision_rects)
+        self.graph = self._build_waypoint_graph()
+        
 
     def _gen_waypoints(self, level_res, collision_rects):
         """Generates waypoints with resolution density, i.e. one waypoint every res pixels."""
         # add a buffer of 10 pixels to ignore surrounding walls.
         buffer = 10
         w, h = level_res
-        cols = w // self.res
-        rows = h // self.res
+        cols = round(w // self.res)
+        rows = round(h // self.res)
         wps = []
 
         for i in range(cols):
@@ -29,6 +36,7 @@ class WaypointGraph:
                 if wp_rect.collidelist(collision_rects):
                     wps.append(Waypoint(wp_rect.center))
         
+        print(f"Built {len(wps)} waypoints")
         return wps
 
     def _build_waypoint_graph(self):
@@ -36,9 +44,10 @@ class WaypointGraph:
         # adjacency matrix of waypoints
         wp_dict = {}
         for wp in self.waypoints:
-            neighbours = self._check_neighbours(wp)
+            neighbours = self._check_neighbours(wp.pos)
             wp.neighbours = neighbours
             wp_dict[wp] = neighbours
+        
         return wp_dict # for storage of waypoints
             
 
@@ -46,22 +55,24 @@ class WaypointGraph:
         # check waypoint neighbours by considering adjacent cells - check for waypoints res pixels
         # above, below, left and right
         neighbours = []
-        # above -> y -= 50
-        # below -> y += 50
-        # left -> x -= 50
-        # right -> x += 50
+        # above -> y -= self.res
+        # below -> y += self.res
+        # left -> x -= self.res
+        # right -> x += self.res
         # considers diagonals as well
-        pts = [waypoint + pygame.Vector2(0, -50), 
-               waypoint + pygame.Vector2(0, 50), 
-               waypoint + pygame.Vector2(-50, 0), 
-               waypoint + pygame.Vector2(50, 0),
-               waypoint + pygame.Vector2(50, -50), 
-               waypoint + pygame.Vector2(50, 50), 
-               waypoint + pygame.Vector2(-50, -50), 
-               waypoint + pygame.Vector2(-50, 50),]
+        pts = [waypoint + pygame.Vector2(0, -self.res), 
+               waypoint + pygame.Vector2(0, self.res), 
+               waypoint + pygame.Vector2(-self.res, 0), 
+               waypoint + pygame.Vector2(self.res, 0),
+               waypoint + pygame.Vector2(self.res, -self.res), 
+               waypoint + pygame.Vector2(self.res, self.res), 
+               waypoint + pygame.Vector2(-self.res, -self.res), 
+               waypoint + pygame.Vector2(-self.res, self.res),]
         for pt in pts:
-            if pt in self.waypoint_points:
-                neighbours.append(pt)
+            for wp in self.waypoints:
+                if wp.pos == pt:
+                    neighbours.append(wp)
+                    break
         
         return neighbours
 
@@ -70,12 +81,21 @@ class WaypointGraph:
         # Finds nearest waypoint to a given point
         # waypoints generate from res/2, res/2, incrementing res onwards
         # find nearest x and y coordinate near the arith seq res/2 + n
-        x, y = pt.x, pt.y
+        x, y = pt
         x_offset, y_offset = x - self.res/2, y - self.res/2
         col, row = x_offset % self.res, y_offset % self.res
         pos = ((col + 0.5) * self.res, (row + 0.5) * self.res)
-        if pos in [wp.pos for wp in self.waypoints]:
-            return pos
+        
+        # Find waypoint at or near the calculated position
+        for wp in self.waypoints:
+            if wp.pos == pygame.Vector2(pos):
+                return wp
+        
+        # Fallback: find closest waypoint by distance if exact match not found
+        closest_wp = min(self.waypoints, key=lambda wp: wp.pos.distance_to(pt))
+        return closest_wp
+        
+        
         
      
 
