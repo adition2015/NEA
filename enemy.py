@@ -38,6 +38,7 @@ class Enemy(pygame.sprite.Sprite):
     def precalculate_patrol_path(self):
         self.patrol_path = []
         # construct a path that enemy walks from p1 through path and back to p1:
+        print(f'Enemy waypoints: {self.waypoints}')
         for i in range(len(self.waypoints) - 1):
             # compute start and end wps:
             

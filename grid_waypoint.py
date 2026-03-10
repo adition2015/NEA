@@ -14,13 +14,14 @@ class Waypoint:
 class WaypointGraph:
     def __init__(self, level_res: tuple, collision_rects: list, res: int):
         self.res = res
+        self.collision_rects = collision_rects
 
         # initialisation
-        self.waypoints = self._gen_waypoints(level_res, collision_rects)
+        self.waypoints = self._gen_waypoints(level_res)
         self.graph = self._build_waypoint_graph()
         
 
-    def _gen_waypoints(self, level_res, collision_rects):
+    def _gen_waypoints(self, level_res):
         """Generates waypoints with resolution density, i.e. one waypoint every res pixels."""
         # add a buffer of 10 pixels to ignore surrounding walls.
         buffer = 10
@@ -33,7 +34,7 @@ class WaypointGraph:
             for j in range(rows):
                 # create wp_rect, check for collisions, place waypoint in centre if no collision rects
                 wp_rect = pygame.Rect((i * self.res) + buffer/2, (j * self.res) + buffer / 2, self.res-buffer, self.res-buffer)
-                if wp_rect.collidelist(collision_rects):
+                if wp_rect.collidelist(self.collision_rects):
                     wps.append(Waypoint(wp_rect.center))
         
         print(f"Built {len(wps)} waypoints")
@@ -55,27 +56,27 @@ class WaypointGraph:
         # check waypoint neighbours by considering adjacent cells - check for waypoints res pixels
         # above, below, left and right
         neighbours = []
-        # above -> y -= self.res
-        # below -> y += self.res
-        # left -> x -= self.res
-        # right -> x += self.res
-        # considers diagonals as well
-        pts = [waypoint + pygame.Vector2(0, -self.res), 
-               waypoint + pygame.Vector2(0, self.res), 
-               waypoint + pygame.Vector2(-self.res, 0), 
-               waypoint + pygame.Vector2(self.res, 0),
-               waypoint + pygame.Vector2(self.res, -self.res), 
-               waypoint + pygame.Vector2(self.res, self.res), 
-               waypoint + pygame.Vector2(-self.res, -self.res), 
-               waypoint + pygame.Vector2(-self.res, self.res),]
-        for pt in pts:
-            for wp in self.waypoints:
-                if wp.pos == pt:
-                    neighbours.append(wp)
-                    break
+        candidates = []
+        # draw a square with side length 2 * self.res, collect waypoints:
+        # check if line_blocked, if not, add to neighbours
+        range_rect = pygame.Rect(waypoint.x - self.res, waypoint.y - self.res, 2*self.res, 2*self.res)
+
+        # collect waypoints by area:
+        for wp in self.waypoints:
+            if range_rect.collidepoint(wp.pos):
+                candidates.append(wp)
         
+        for wp in candidates:
+            if not self._line_blocked(waypoint, wp.pos):
+                neighbours.append(wp)
         return neighbours
 
+    def _line_blocked(self, p1: pygame.Vector2, p2: pygame.Vector2):
+        blocked = False
+        for rect in self.collision_rects:
+            if rect.clipline(p1, p2):
+                blocked = True
+        return blocked
 
     def nearest_waypoint(self, pt):
         # Finds nearest waypoint to a given point
@@ -83,12 +84,13 @@ class WaypointGraph:
         # find nearest x and y coordinate near the arith seq res/2 + n
         x, y = pt
         x_offset, y_offset = x - self.res/2, y - self.res/2
-        col, row = x_offset % self.res, y_offset % self.res
+        col, row = x_offset // self.res, y_offset // self.res
         pos = ((col + 0.5) * self.res, (row + 0.5) * self.res)
-        
+        print(pos)
         # Find waypoint at or near the calculated position
         for wp in self.waypoints:
             if wp.pos == pygame.Vector2(pos):
+                print("Found via arith. seq")
                 return wp
         
         # Fallback: find closest waypoint by distance if exact match not found

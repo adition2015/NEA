@@ -35,16 +35,18 @@ class Level:
         self.collision_rects = [wall.rect for wall in self.walls]
         self.interactables = [door for door in self.doors]
 
+        self.graph = WaypointGraph(level_res, self.collision_rects, 50)
+
         # now initialise door geometry in the physics set; this has no bearing
         # on the mesh and only affects collisions for player/enemies.
         for door in self.doors:
             door.interact(self.collision_rects)
 
-        self.graph = WaypointGraph(level_res, self.collision_rects, 50)
+        
 
         # initialise enemies
         self.enemies = [
-            Enemy((100, 100), (1, 0), [(100, 100), (300, 400)])
+            Enemy((100, 100), (1, 0), [(100, 100), (100, 200), (200, 100)])
         ]
 
         self.precalculate_patrol_path()
@@ -163,7 +165,7 @@ class Level:
             enemy.waypoints = []
             for i in enemy.patrol_points:
                 enemy.waypoints.append(self.graph.nearest_waypoint(i))
-                enemy.precalculate_patrol_path()
+            enemy.precalculate_patrol_path()
 
 
 # fix nav polygon so that it takes points in order that are connected then form a polygon

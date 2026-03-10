@@ -52,7 +52,7 @@ def a_star(start: Waypoint, end: Waypoint):
             if neighbour not in g_score or tentative < g_score[neighbour]:
                 came_from[neighbour] = current
                 g_score[neighbour] = tentative
-                f = tentative + distance(neighbour, end.pos)
+                f = tentative + distance(neighbour, end)
                 heapq.heappush(open_set, (f, counter, neighbour))
                 counter += 1
     return None
