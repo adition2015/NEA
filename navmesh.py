@@ -1,5 +1,5 @@
-from shapely.geometry import box, Point
-from shapely.ops import unary_union, triangulate
+from shapely.geometry import LineString, box, Point, Polygon
+from shapely.ops import unary_union, split
 from settings import *
 import math
 import heapq
@@ -62,13 +62,13 @@ class NavMesh:
             triangle = Polygon([p1, p2, p3])
             triangles.append(triangle)
 
-        clean_tris = []
+        self.polys = [NavPoly(tri) for tri in triangles]
 
-        self.polys = [NavPoly(p) for p in clean_tris]
+        self.polys = self._refine_polys(self.polys, max_area=500)
+
         
         self._build_neighbours()
 
-    
     def _build_neighbours(self):
         """Populate each polygon's neighbour list.
 
@@ -102,6 +102,31 @@ class NavMesh:
                         p2.neighbours.append(p1)
 
     
+    def _refine_polys(self, polys, max_area):
+        """Subdivide large polygons into smaller ones for finer navigation mesh."""
+        new_polys = []
+        for p in polys:
+            if p.poly.area > max_area:
+                # Subdivide triangle into 4 smaller triangles by adding centroid
+                if len(p.poly.exterior.coords) == 4:  # triangle (closed ring has 4 points)
+                    coords = list(p.poly.exterior.coords)[:-1]  # remove closing duplicate
+                    a, b, c = coords
+                    # centroid
+                    cx = (a[0] + b[0] + c[0]) / 3
+                    cy = (a[1] + b[1] + c[1]) / 3
+                    m = (cx, cy)
+                    # create 3 smaller triangles
+                    tri1 = Polygon([a, m, b])
+                    tri2 = Polygon([b, m, c])
+                    tri3 = Polygon([c, m, a])
+                    new_polys.extend([NavPoly(tri1), NavPoly(tri2), NavPoly(tri3)])
+                else:
+                    # for non-triangles, just keep as is for now
+                    new_polys.append(p)
+            else:
+                new_polys.append(p)
+        return new_polys
+    
     def find_poly(self, pos):
 
         point = Point(pos)
@@ -120,7 +145,7 @@ def distance(a, b):
      
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
-def astar(nav_mesh, start_poly, goal_poly):
+def astar(nav_mesh, start_poly, goal_poly, enemy_radius=16):
 
     open_set = []
     heapq.heappush(open_set, (0, start_poly))
@@ -158,19 +183,33 @@ def astar(nav_mesh, start_poly, goal_poly):
             # euclidean distance heuristic
 
             if neighbour not in g_score or tentative < g_score[neighbour]:
-
                 came_from[neighbour] = current
                 g_score[neighbour] = tentative
-
                 f = tentative + distance(
                     neighbour.center, goal_poly.center
                 ) # cost of a specific node
-
-
                 heapq.heappush(open_set, (f, neighbour))
+
+        # visibility links (straight‑line neighbours) - prioritized with lower cost
+        for other in nav_mesh.polys:
+            if other is current or other in current.neighbours:
+                continue
+            segment = LineString([current.center, other.center])
+            # buffer the segment by enemy radius
+            buffered_segment = segment.buffer(enemy_radius)
+            if nav_mesh.walkable.contains(buffered_segment):
+                # prioritize LoS by reducing cost (e.g., 70% of actual distance)
+                los_cost = distance(current.center, other.center) * 0.7
+                tentative = g_score[current] + los_cost
+                if other not in g_score or tentative < g_score[other]:
+                    came_from[other] = current
+                    g_score[other] = tentative
+                    f = tentative + distance(other.center, goal_poly.center)
+                    heapq.heappush(open_set, (f, other))
+
     return None
 
-def find_path(nav_mesh, start_pos, end_pos):
+def find_path(nav_mesh, start_pos, end_pos, enemy_radius=20):
 
     start_poly = nav_mesh.find_poly(start_pos)
     end_poly = nav_mesh.find_poly(end_pos)
@@ -179,7 +218,7 @@ def find_path(nav_mesh, start_pos, end_pos):
         # print("No path: start or end position is outside the navmesh.")
         return None
     
-    poly_path = astar(nav_mesh, start_poly, end_poly)
+    poly_path = astar(nav_mesh, start_poly, end_poly, enemy_radius)
 
     if not poly_path:
         return None

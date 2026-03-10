@@ -3,7 +3,6 @@ from player import Player
 from enemy import Enemy
 from settings import *
 from utils import draw_debug
-from navmesh import NavMesh
 
 # Links:
 "https://www.youtube.com/watch?v=UT_tKPLejyU" # pygame layers for drawing on screen
@@ -38,39 +37,23 @@ class Level:
         self.collision_rects = [wall.rect for wall in self.walls]
         self.interactables = [door for door in self.doors]
 
-        # header: take a snapshot of the static walls and build the mesh from
-        # that copy.  doors are deliberately omitted.
-        static_walls = [w.rect.copy() for w in self.walls]
-        self.navmesh = NavMesh(level_res, static_walls)
-
         # now initialise door geometry in the physics set; this has no bearing
         # on the mesh and only affects collisions for player/enemies.
         for door in self.doors:
             door.interact(self.collision_rects)
 
 
-        # initialise enemies after navMesh
+        # initialise enemies
         self.enemies = [
-            Enemy((100, 100), (0, 1), [(100, 100), (300, 400)])
+            Enemy((100, 100), (1, 0), [(100, 100), (300, 400)])
         ]
-
-    def rebuild_navmesh(self):
-        """No longer required.
-
-        Doors are always treated as passable in the mesh – enemies will open them
-        automatically – so the mesh only depends on the permanent wall geometry.
-        This stub remains for backward‑compatibility but is never called by the
-        current code.
-        """
-        pass
-
 
     def update(self, dt):
         self.player.update(dt)
         self._resolve_collisions()
         self.handle_interaction()
         for i in self.enemies:
-           i.update(dt, self.navmesh)
+           i.update(dt)
 
     def draw(self, screen, fps):
         #clear surface every frame:
@@ -101,24 +84,6 @@ class Level:
             "movement_mode": self.player.movement_mode,
             "fps": round(fps)
         })
-
-        # nav polygon
-        for poly in self.navmesh.polys:
-            # Draw polygon outline
-            points = list(poly.poly.exterior.coords)
-            # pygame.draw.polygon(self.surface, (255, 0, 255), points, 5)  # Green outline
-            
-            # Draw center point
-            pygame.draw.circle(self.surface, (0, 255, 0), (int(poly.center[0]), int(poly.center[1])), 3)
-            
-            for n in poly.neighbours:
-                pygame.draw.line(
-                    self.surface,
-                    (255,0,0),
-                    poly.center,
-                    n.center,
-                    1
-                )
 
         screen.blit(self.surface, level_offset)
 
@@ -185,7 +150,6 @@ class Level:
             return pygame.Vector2(min_x, 0)
         else:
             return pygame.Vector2(0, min_y)
-    
 
 # fix nav polygon so that it takes points in order that are connected then form a polygon
 
