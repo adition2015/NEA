@@ -26,6 +26,7 @@ class Level:
                              direction=pygame.Vector2(0, -1)
                              )
         self.surface = pygame.Surface(settings.level_res, pygame.SRCALPHA)
+        self.vision_overlay = pygame.Surface(settings.level_res, pygame.SRCALPHA)
         self.walls = [] # all walls have a rect attribute - this will be called for collisions
         self.doors = []# all doors have a rect attribute - if closed, will be called for collisions
         self._load_level(data)
@@ -85,7 +86,7 @@ class Level:
         # -- enemy --
         for i in self.enemies:
             i.draw(self.surface)
-        # self.draw_vision_cones()
+        self.draw_vision_cones()
 
         # draw static level objects
         for i in self.walls:
@@ -152,13 +153,16 @@ class Level:
 
     def _resolve_collisions(self):
         player_rect = self.player.get_collision_rect()
-        
-
         for rect in self.collision_rects:
+            if abs(rect.centerx - player_rect.centerx) > 80:
+                continue
             if player_rect.colliderect(rect):
                 offset = self._calculate_pushout(player_rect, rect)
                 self.player.resolve_collision(offset)
+        for rect in self.collision_rects:
             for enemy in self.enemies:
+                if abs(rect.centerx - enemy.rect.centerx) > 80:
+                    continue
                 if enemy.rect.colliderect(rect):
                     offset = self._calculate_pushout(enemy.rect, rect)
                     enemy.resolve_collision(offset)
@@ -190,10 +194,13 @@ class Level:
             enemy.set_direction()
 
     def draw_vision_cones(self):
+        self.vision_overlay.fill((0, 0, 0, 0))  # clear with transparent
         for enemy in self.enemies:
-            points = enemy.build_vision_cone(self.collision_rects)
-            enemy.draw_vision_cone(self.surface, points)
-            # draw line for self.angle
+            if enemy._vision_dirty:
+                points = enemy.build_vision_cone(self.collision_rects)
+                if len(points) >= 3:
+                    pygame.draw.polygon(self.vision_overlay, (255, 255, 0, 64), points)
+        self.surface.blit(self.vision_overlay, (0, 0))
 
 
 # fix nav polygon so that it takes points in order that are connected then form a polygon

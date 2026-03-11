@@ -93,7 +93,7 @@ class Enemy(pygame.sprite.Sprite):
     
     def rotate(self, dt):
         # Calculate desired angle from direction vector
-        desired_angle = math.degrees(math.atan2(self.direction.y, self.direction.x))
+        desired_angle = math.degrees(math.atan2(-self.direction.y, self.direction.x))
         
         # Calculate shortest angle difference (-180 to +180)
         angle_diff = (desired_angle - self.angle + 180) % 360 - 180
@@ -129,26 +129,51 @@ class Enemy(pygame.sprite.Sprite):
     
     def draw(self, surface: pygame.Surface):
         """Rotate fresh from base_image every draw call — no cumulative degradation."""
-        rotated = pygame.transform.rotate(self.base_image, -self.angle)
+        rotated = pygame.transform.rotate(self.base_image, self.angle)
         rect = rotated.get_rect(center=(int(self.position.x), int(self.position.y)))
         surface.blit(rotated, rect)
     
     def update(self, dt: float):
-        # handle variable updates
+        old_pos = pygame.Vector2(self.position)
+        old_angle = self.angle
         if self.state == "patrol":
             self.patrol()
-
-        # handle position updates
         self.move(dt)
+        self._vision_dirty = (self.position != old_pos or self.angle != old_angle)
 
-    def build_vision_cone(self, collision_rects):
-        # Calculate vision cone points every frame
-        self.angles = self.get_vision_angles()
-        points = [self.rect.center]
-        for angle in self.angles:
-            points.append(self.cast_ray(angle, collision_rects))
+    def build_vision_cone(self, walls):
+        # walls is a list of pygame.Rect
+        cx, cy = self.rect.center
+        half_fov = self.FOV / 2
+
+        # Collect all wall endpoints
+        endpoints = []
+        for rect in walls:
+            for corner in [(rect.left, rect.top), (rect.right, rect.top),
+                        (rect.left, rect.bottom), (rect.right, rect.bottom)]:
+                endpoints.append(corner)
+
+        # Get angles of each endpoint relative to enemy facing
+        candidate_angles = []
+        for ex, ey in endpoints:
+            raw_angle = math.degrees(math.atan2(-(ey - cy), ex - cx))
+            # Normalise difference against facing angle
+            diff = (raw_angle - self.angle + 180) % 360 - 180
+            if abs(diff) <= half_fov + 1:  # +1 for edge tolerance
+                candidate_angles.append(self.angle + diff - 0.0001)
+                candidate_angles.append(self.angle + diff)
+                candidate_angles.append(self.angle + diff + 0.0001)
+
+        # Always include the cone boundary rays
+        candidate_angles += [self.angle - half_fov, self.angle + half_fov]
+
+        points = [(cx, cy)]
+        for angle in sorted(set(candidate_angles)):
+            diff = (angle - self.angle + 180) % 360 - 180
+            if abs(diff) <= half_fov:
+                points.append(self.cast_ray(angle, walls))
+
         return points
-
 
     def get_vision_angles(self):
         self.ray_count = int(self.FOV * self.cone_res)

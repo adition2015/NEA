@@ -1,5 +1,7 @@
 import os, json, pygame
 
+_debug_fonts = {}
+
 # --- window resolution calculations ---
 
 def level_offset(levelScalar: float, window_res: tuple) -> tuple:
@@ -111,7 +113,9 @@ def draw_debug(surface, data: dict, pos=(10, 10), size=10, colour=(0, 255, 0)):
     """
     data: any dict of label->value pairs you want displayed
     """
-    font = pygame.font.SysFont("monospace", size)
+    if size not in _debug_fonts:
+        _debug_fonts[size] = pygame.font.SysFont("monospace", size)
+    font = _debug_fonts[size]
     x, y = pos
     for label, value in data.items():
         text = font.render(f"{label}: {value}", True, colour)

@@ -26,7 +26,7 @@ class Settings:
     
     def init_resolution(self):
         if self.is_fullscreen:
-            self.flags = pygame.FULLSCREEN  
+            self.flags = pygame.FULLSCREEN|pygame.HWSURFACE 
             self.res = pygame.display.get_desktop_sizes()[0]
         self.calc_level_res()
 
