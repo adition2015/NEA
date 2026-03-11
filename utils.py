@@ -117,4 +117,3 @@ def draw_debug(surface, data: dict, pos=(10, 10), size=10, colour=(0, 255, 0)):
         text = font.render(f"{label}: {value}", True, colour)
         surface.blit(text, (x, y))
         y += size + 2
-

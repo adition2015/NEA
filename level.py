@@ -1,28 +1,31 @@
-import pygame, json
+import pygame, math
 from player import Player
 from enemy import Enemy
 from settings import *
 from utils import draw_debug
 from grid_waypoint import *
+from pathfinding import distance
 # Links:
 "https://www.youtube.com/watch?v=UT_tKPLejyU" # pygame layers for drawing on screen
 
+
 def scale_rect(x, y, w, h):
     return (
-        int(x * scale_x),
-        int(y * scale_y),
-        int(w * scale_x),
-        int(h * scale_y)
+        int(x * settings.scale_x),
+        int(y * settings.scale_y),
+        int(w * settings.scale_x),
+        int(h * settings.scale_y)
     )
 
 class Level:
     def __init__(self, ID, data):
+        player_pos = tuple(x//2 for x in settings.level_res) # encode it into data for level.
         self.ID = ID
         self.player = Player(
                              position=pygame.Vector2(player_pos),
                              direction=pygame.Vector2(0, -1)
                              )
-        self.surface = pygame.Surface(level_res, pygame.SRCALPHA)
+        self.surface = pygame.Surface(settings.level_res, pygame.SRCALPHA)
         self.walls = [] # all walls have a rect attribute - this will be called for collisions
         self.doors = []# all doors have a rect attribute - if closed, will be called for collisions
         self._load_level(data)
@@ -37,7 +40,7 @@ class Level:
         self.interactables = [door for door in self.doors]
         self.door_rects = [door.rect for door in self.doors]
 
-        self.graph = WaypointGraph(level_res, self.static_rects, 50, self.door_rects)
+        self.graph = WaypointGraph(settings.level_res, self.static_rects, 50, self.door_rects)
         connected = [wp for wp in self.graph.waypoints if wp.neighbours]
         print(f"Waypoints with neighbours: {len(connected)} / {len(self.graph.waypoints)}")
         
@@ -82,6 +85,7 @@ class Level:
         # -- enemy --
         for i in self.enemies:
             i.draw(self.surface)
+        self.draw_vision_cones()
 
         # draw static level objects
         for i in self.walls:
@@ -100,14 +104,14 @@ class Level:
         for wp in self.graph.waypoints:
             wp.draw(self.surface)
 
-        screen.blit(self.surface, level_offset)
+        screen.blit(self.surface, settings.level_offset)
 
     def _load_level(self, data: dict):
         for (x, y, w, h) in data.get("walls", []):
             self.walls.append(Wall(*scale_rect(x, y, w, h)))
 
         for (x, y, o) in data.get("doors", []):
-            sx, sy = int(x * scale_x), int(y * scale_y)
+            sx, sy = int(x * settings.scale_x), int(y * settings.scale_y)
             self.doors.append(Door(sx, sy, o))
             
     
@@ -185,6 +189,12 @@ class Level:
             enemy.precalculate_patrol_path()
             enemy.set_direction()
 
+    def draw_vision_cones(self):
+        for enemy in self.enemies:
+            points = enemy.build_vision_cone(self.collision_rects)
+            enemy.draw_vision_cone(self.surface, points)
+            # draw line for self.angle
+
 
 # fix nav polygon so that it takes points in order that are connected then form a polygon
 
@@ -207,7 +217,10 @@ class Door:
         self.is_open = True
         self.width = 5 if o == 0 else 50
         self.height = 50 if o == 0 else 5
-        self.rect = pygame.Rect(x, y, self.width, self.height)
+        self.width *= settings.scale_x
+        self.height *= settings.scale_y
+        self.rect = pygame.rect.Rect(x, y, self.width, self.height)
+        
 
     def open(self, collision_rects):
         if not self.is_open:

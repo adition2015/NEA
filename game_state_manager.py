@@ -1,6 +1,6 @@
 import pygame
 from level import Level, Wall
-from settings import *
+from settings import settings
 from utils import *
 
 class GameStateManager:
@@ -18,8 +18,8 @@ class GameStateManager:
         self.clock = pygame.time.Clock()
 
     def init_window(self):
-        self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
-        pygame.display.set_caption("Game")
+        settings.init_resolution() # dependent on pygame initialisation
+        self.screen = pygame.display.set_mode(settings.res, settings.flags)
 
     def init_game_state(self):
         self.running = True
@@ -28,7 +28,7 @@ class GameStateManager:
     # runtime functions
     def run(self):
         while self.running:
-            dt = self.clock.tick(FPS) / 1000 
+            dt = self.clock.tick(settings.FPS) / 1000 
             fps = self.clock.get_fps()   
             self.handle_events()
             self.update(dt)

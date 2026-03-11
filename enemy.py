@@ -19,6 +19,11 @@ class Enemy(pygame.sprite.Sprite):
         self.rect = self.base_image.get_rect(center=(int(self.position.x), int(self.position.y)))
         self.angle = 0
 
+        # vision
+        self.FOV = 60
+        self.cone_res = 0.5 # lines per degree
+        self.view_distance = 200
+
         self.state = "patrol"
         self.patrol_ID = 0
 
@@ -93,6 +98,7 @@ class Enemy(pygame.sprite.Sprite):
             self.angle = math.degrees(rad)
         else:
             self.angle = 0
+
     
     def draw(self, surface: pygame.Surface):
         """Rotate fresh from base_image every draw call — no cumulative degradation."""
@@ -108,4 +114,40 @@ class Enemy(pygame.sprite.Sprite):
         # handle position updates
         self.move(dt)
 
+    def build_vision_cone(self, collision_rects):
+        self.angles = self.get_vision_angles()
+        points = [self.rect.center]
+        for angle in self.angles:
+            points.append(self.cast_ray(angle, collision_rects)) # draw a polygon with these points, if not, line is okay
+        return points
 
+
+    def get_vision_angles(self):
+        self.ray_count = int(self.FOV * self.cone_res)
+        half = self.FOV / 2
+        angles =  [
+            self.angle - half + i * (1 / self.cone_res)
+            for i in range(self.ray_count)
+        ]
+        return angles
+
+    def cast_ray(self, angle, collision_rects):
+        "Returns the end point of a ray in a vision cone"
+        rad = math.radians(angle)
+        dx = math.cos(rad)
+        dy = -math.sin(rad)
+        direction = pygame.Vector2(dx, dy)
+        start = pygame.Vector2(self.rect.center)
+        end = start + direction * self.view_distance
+        
+        hit_point = end
+        for wall in collision_rects:
+            clipped = wall.clipline(start, end)
+            if clipped:
+                #find distance between hitpoint and self.rect.center
+                if distance(self.rect.center, clipped[0]) < distance(self.rect.center, hit_point):
+                    hit_point = clipped[0]
+        return hit_point
+
+    def draw_vision_cone(self, surface, points):
+        pygame.draw.polygon(surface, (255, 255, 0, 64), points)
