@@ -55,4 +55,5 @@ def a_star(start: Waypoint, end: Waypoint):
                 f = tentative + distance(neighbour, end)
                 heapq.heappush(open_set, (f, counter, neighbour))
                 counter += 1
+                
     return None

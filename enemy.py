@@ -37,20 +37,18 @@ class Enemy(pygame.sprite.Sprite):
     
     def precalculate_patrol_path(self):
         self.patrol_path = []
-        # construct a path that enemy walks from p1 through path and back to p1:
-        print(f'Enemy waypoints: {self.waypoints}')
         for i in range(len(self.waypoints) - 1):
-            # compute start and end wps:
-            
             path_between_pts = a_star(self.waypoints[i], self.waypoints[i+1])
+            if path_between_pts is None:
+                print(f"Warning: no path between waypoint {i} and {i+1} — skipping segment")
+                continue
             self.patrol_path.extend(path_between_pts)
-        # calculate path from last to first and extend patrol_path:
-        self.patrol_path.extend(a_star(self.waypoints[-1], self.waypoints[0]))
-        print(self.patrol_path)
-        # ensure we have a valid direction heading toward first waypoint
-        if self.patrol_path:
-            self.patrol_ID = 0
-            self.set_direction()
+        
+        if len(self.waypoints) >= 2:
+            return_path = a_star(self.waypoints[-1], self.waypoints[0])
+            if return_path:
+                self.patrol_path.extend(return_path)
+        print(type(self.patrol_path[-1]))
     
     def patrol(self):
         """Simple waypoint-based patrol - move to next waypoint when close enough."""
@@ -64,10 +62,12 @@ class Enemy(pygame.sprite.Sprite):
 
     def follow_patrol_path(self):
         # patrol_path contains Waypoint objects; compare using their positions
-        target_pos = self.patrol_path[self.patrol_ID]
-        if self.position.distance_to(target_pos) < 5:
+        self.target_pos = self.patrol_path[self.patrol_ID]
+        if self.position.distance_to(self.target_pos) < 5:
             self.patrol_ID = (self.patrol_ID + 1) % len(self.patrol_path)
             self.set_direction()
+        self.target_pos = self.patrol_path[self.patrol_ID]
+        # print(f"pos: {self.position}, target: {target_pos}, dist: {self.position.distance_to(target_pos)}, next_target: {self.patrol_path[self.patrol_ID + 1]}")
 
     def set_direction(self):
         # point towards the current waypoint in the patrol path
@@ -76,6 +76,7 @@ class Enemy(pygame.sprite.Sprite):
         if vec.length() > 0:
             self.direction = vec.normalize()
         else:
+            
             self.direction = pygame.Vector2(0, 0)
 
     def resolve_collision(self, offset: pygame.Vector2):
@@ -87,7 +88,7 @@ class Enemy(pygame.sprite.Sprite):
         self.rect.center = (int(self.position.x), int(self.position.y))
         # update angle (if direction is zero this will produce 0)
         if self.direction.length() > 0:
-            rad = -math.acos(np.dot(tuple(self.direction), (1, 0)))
+            rad = math.atan2(self.direction.y, self.direction.x)
             self.angle = math.degrees(rad)
         else:
             self.angle = 0

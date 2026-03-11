@@ -33,10 +33,14 @@ class Level:
         # constructed from *walls alone* and is never updated because doors are
         # effectively always passable (enemies will open them if necessary).
         self.collision_rects = [wall.rect for wall in self.walls]
+        self.static_rects = self.collision_rects.copy()
         self.interactables = [door for door in self.doors]
+        self.door_rects = [door.rect for door in self.doors]
 
-        self.graph = WaypointGraph(level_res, self.collision_rects, 50)
-
+        self.graph = WaypointGraph(level_res, self.static_rects, 50, self.door_rects)
+        connected = [wp for wp in self.graph.waypoints if wp.neighbours]
+        print(f"Waypoints with neighbours: {len(connected)} / {len(self.graph.waypoints)}")
+        
         # now initialise door geometry in the physics set; this has no bearing
         # on the mesh and only affects collisions for player/enemies.
         for door in self.doors:
@@ -46,7 +50,7 @@ class Level:
 
         # initialise enemies
         self.enemies = [
-            Enemy((100, 100), (1, 0), [(100, 100), (100, 200), (200, 100)])
+            Enemy((100, 100), (0, 0), [(100, 100), (100, 200), (200, 100), (400, 400)])
         ]
 
         self.precalculate_patrol_path()
@@ -116,6 +120,7 @@ class Level:
                 key = min(target_candidates, key = target_candidates.get) # returns the interactable object with shortest dist. to player
                 self.player.interact_signal = False
                 return key
+    
         
 
     def handle_interaction(self):
@@ -166,6 +171,7 @@ class Level:
             for i in enemy.patrol_points:
                 enemy.waypoints.append(self.graph.nearest_waypoint(i))
             enemy.precalculate_patrol_path()
+            enemy.set_direction()
 
 
 # fix nav polygon so that it takes points in order that are connected then form a polygon

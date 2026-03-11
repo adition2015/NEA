@@ -12,9 +12,10 @@ class Waypoint:
     
 
 class WaypointGraph:
-    def __init__(self, level_res: tuple, collision_rects: list, res: int):
+    def __init__(self, level_res: tuple, collision_rects: list, res: int, door_rects: list):
         self.res = res
         self.collision_rects = collision_rects
+        self.door_rects = door_rects
 
         # initialisation
         self.waypoints = self._gen_waypoints(level_res)
@@ -29,14 +30,22 @@ class WaypointGraph:
         cols = round(w // self.res)
         rows = round(h // self.res)
         wps = []
+        self.door_waypoints = []
 
         for i in range(cols):
             for j in range(rows):
                 # create wp_rect, check for collisions, place waypoint in centre if no collision rects
                 wp_rect = pygame.Rect((i * self.res) + buffer/2, (j * self.res) + buffer / 2, self.res-buffer, self.res-buffer)
-                if wp_rect.collidelist(self.collision_rects):
+                if wp_rect.collidelist(self.collision_rects) == -1:
                     wps.append(Waypoint(wp_rect.center))
         
+        # special door waypoints:
+        # if this is the target, we can call for interaction with door when enemy is 50 pixels away.
+        for door in self.door_rects:
+            # add wp to center of door rect:
+            wps.append(Waypoint(door.center))
+            self.door_waypoints.append(door.center)
+
         print(f"Built {len(wps)} waypoints")
         return wps
 
@@ -45,21 +54,21 @@ class WaypointGraph:
         # adjacency matrix of waypoints
         wp_dict = {}
         for wp in self.waypoints:
-            neighbours = self._check_neighbours(wp.pos)
+            neighbours = self._check_neighbours(wp.pos, depth=3)
             wp.neighbours = neighbours
             wp_dict[wp] = neighbours
         
         return wp_dict # for storage of waypoints
             
 
-    def _check_neighbours(self, waypoint: pygame.Vector2):
+    def _check_neighbours(self, waypoint: pygame.Vector2, depth: int): # depth is how many res cells outward does it consider.
         # check waypoint neighbours by considering adjacent cells - check for waypoints res pixels
         # above, below, left and right
         neighbours = []
         candidates = []
         # draw a square with side length 2 * self.res, collect waypoints:
         # check if line_blocked, if not, add to neighbours
-        range_rect = pygame.Rect(waypoint.x - self.res, waypoint.y - self.res, 2*self.res, 2*self.res)
+        range_rect = pygame.Rect(waypoint.x - ((depth*self.res)//2), waypoint.y - ((depth*self.res)//2), depth*self.res, depth*self.res)
 
         # collect waypoints by area:
         for wp in self.waypoints:
