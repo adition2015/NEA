@@ -50,7 +50,8 @@ class Level:
 
         # initialise enemies
         self.enemies = [
-            Enemy((100, 100), (0, 0), [(100, 100), (100, 200), (200, 100), (400, 400)])
+            Enemy((100, 100), (0, 0), [(100, 100), (100, 200), (200, 100), (400, 400)]),
+            Enemy((800, 800), (0, 0), [(600, 600), (400, 600), (800, 100), (400, 100)])
         ]
 
         self.precalculate_patrol_path()
@@ -59,6 +60,7 @@ class Level:
         self.player.update(dt)
         self._resolve_collisions()
         self.handle_interaction()
+        self.check_enemy_interactions()
         for i in self.enemies:
            i.update(dt)
 
@@ -121,7 +123,15 @@ class Level:
                 self.player.interact_signal = False
                 return key
     
-        
+    def check_enemy_interactions(self):
+        for enemy in self.enemies:
+            for door in self.doors:
+                dist = pygame.Vector2(door.rect.center).distance_to(enemy.position)
+                if dist < 40 and not door.is_open:
+                    door.interact(self.collision_rects)
+                elif dist > 50 and dist < 60 and door.is_open: # stops player interaction otherwise
+                    door.interact(self.collision_rects) 
+                   
 
     def handle_interaction(self):
         interactable = self.check_interaction()
