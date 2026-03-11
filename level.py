@@ -85,7 +85,7 @@ class Level:
         # -- enemy --
         for i in self.enemies:
             i.draw(self.surface)
-        self.draw_vision_cones()
+        # self.draw_vision_cones()
 
         # draw static level objects
         for i in self.walls:

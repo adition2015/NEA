@@ -24,6 +24,8 @@ class Enemy(pygame.sprite.Sprite):
         self.cone_res = 0.5 # lines per degree
         self.view_distance = 200
 
+        self.turn_speed = 180 # degrees per second
+
         self.state = "patrol"
         self.patrol_ID = 0
 
@@ -88,14 +90,39 @@ class Enemy(pygame.sprite.Sprite):
         self.rect.center = (int(self.position.x), int(self.position.y))
         # reset direction:
         self.set_direction()
+    
+    def rotate(self, dt):
+        # Calculate desired angle from direction vector
+        desired_angle = math.degrees(math.atan2(self.direction.y, self.direction.x))
+        
+        # Calculate shortest angle difference (-180 to +180)
+        angle_diff = (desired_angle - self.angle + 180) % 360 - 180
+        
+        # If already at the target, stop rotating
+        if abs(angle_diff) < 0.01:
+            self.angle = desired_angle
+            return True
+        
+        # Calculate rotation amount for this frame
+        rotation_amount = dt * self.turn_speed
+        
+        # OVERSHOOT PREVENTION: If we would rotate past the target, clamp to exact angle
+        if abs(rotation_amount) >= abs(angle_diff):
+            self.angle = desired_angle
+        else:
+            # Rotate in the correct direction by the calculated amount
+            if angle_diff < 0:
+                self.angle -= rotation_amount
+            else:
+                self.angle += rotation_amount 
+
 
     def move(self, dt):
         self.position += dt * self.speed * self.direction
         self.rect.center = (int(self.position.x), int(self.position.y))
         # update angle (if direction is zero this will produce 0)
         if self.direction.length() > 0:
-            rad = math.atan2(self.direction.y, self.direction.x)
-            self.angle = math.degrees(rad)
+            self.rotate(dt)
         else:
             self.angle = 0
 
@@ -115,10 +142,11 @@ class Enemy(pygame.sprite.Sprite):
         self.move(dt)
 
     def build_vision_cone(self, collision_rects):
+        # Calculate vision cone points every frame
         self.angles = self.get_vision_angles()
         points = [self.rect.center]
         for angle in self.angles:
-            points.append(self.cast_ray(angle, collision_rects)) # draw a polygon with these points, if not, line is okay
+            points.append(self.cast_ray(angle, collision_rects))
         return points
 
 
@@ -150,4 +178,17 @@ class Enemy(pygame.sprite.Sprite):
         return hit_point
 
     def draw_vision_cone(self, surface, points):
-        pygame.draw.polygon(surface, (255, 255, 0, 64), points)
+        # TRANSPARENCY FIX: pygame.draw.polygon with alpha doesn't blend properly on SRCALPHA surfaces
+        # Solution: Create a temporary surface, draw on it, then blit with proper alpha blending
+        if len(points) < 2:
+            return  # Need at least 2 points to draw
+        
+        # Create a temporary transparent surface for the vision cone
+        temp_surface = pygame.Surface((surface.get_width(), surface.get_height()), pygame.SRCALPHA)
+        
+        # Draw the filled polygon on the temporary surface with transparency (RGBA: Yellow with 64/255 alpha)
+        pygame.draw.polygon(temp_surface, (255, 255, 0, 64), points)
+        
+        # Blit the temporary surface onto the main surface using alpha blending
+        # This properly composites the transparent polygon with the background
+        surface.blit(temp_surface, (0, 0))
