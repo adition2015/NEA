@@ -64,6 +64,7 @@ class Level:
 
         # preallocated drawing surface for vision cones:
         self.cone_surface = pygame.Surface(settings.level_res, pygame.SRCALPHA)
+        self.cone_temp = pygame.Surface(settings.level_res, pygame.SRCALPHA)
 
     def update(self, dt):
         self.player.update(dt)
@@ -197,12 +198,14 @@ class Level:
             enemy.set_direction()
 
     def draw_vision_cones(self):
-        self.cone_surface.fill((0, 0, 0, 0))
+        self.cone_surface.fill((0, 0, 0, 0))           # clear accumulator once
         for enemy in self.enemies:
             points = enemy.build_vision_cone(self.collision_rects)
             if len(points) >= 3:
-                pygame.draw.polygon(self.cone_surface, (255, 255, 0, 64), points)
-        # BLEND_RGBA_ADD makes overlapping regions accumulate brightness
+                self.cone_temp.fill((0, 0, 0, 0))       # clear temp
+                pygame.draw.polygon(self.cone_temp, (255, 255, 0, 64), points)
+                self.cone_surface.blit(self.cone_temp, (0, 0),
+                                    special_flags=pygame.BLEND_RGBA_ADD)  # accumulate RGB+A together
         self.surface.blit(self.cone_surface, (0, 0))
 
 
