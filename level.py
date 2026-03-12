@@ -63,10 +63,13 @@ class Level:
 
 
         # preallocated drawing surface for vision cones:
-        self.cone_surface = pygame.Surface(settings.level_res, pygame.SRCALPHA)
-        self.cone_temp = pygame.Surface(settings.level_res, pygame.SRCALPHA)
+        self.cone_surface = pygame.Surface(settings.level_res).convert()
+        self.cone_temp = pygame.Surface(settings.level_res).convert()
+        self.cone_update_interval = 50  # ms between cone redraws (= 20 FPS)
+        self.cone_timer = 0
 
     def update(self, dt):
+        self.cone_timer += dt * 1000 
         self.player.update(dt)
         self._resolve_collisions()
         self.handle_interaction()
@@ -90,7 +93,11 @@ class Level:
         # -- enemy --
         for i in self.enemies:
             i.draw(self.surface)
-        self.draw_vision_cones()
+        if self.cone_timer >= self.cone_update_interval:
+            self.draw_vision_cones()
+            self.cone_timer = 0
+        # always blit the cached cone_surface, even on skipped frames
+        self.surface.blit(self.cone_surface, (0, 0), special_flags=pygame.BLEND_ADD)
 
         # draw static level objects
         for i in self.walls:
@@ -198,16 +205,15 @@ class Level:
             enemy.set_direction()
 
     def draw_vision_cones(self):
-        self.cone_surface.fill((0, 0, 0, 0))           # clear accumulator once
+        self.cone_surface.fill((0, 0, 0))
         for enemy in self.enemies:
             points = enemy.build_vision_cone(self.collision_rects)
             if len(points) >= 3:
-                self.cone_temp.fill((0, 0, 0, 0))       # clear temp
-                pygame.draw.polygon(self.cone_temp, (255, 255, 0, 64), points)
+                self.cone_temp.fill((0, 0, 0))
+                pygame.draw.polygon(self.cone_temp, (64, 64, 0), points)
                 self.cone_surface.blit(self.cone_temp, (0, 0),
-                                    special_flags=pygame.BLEND_RGBA_ADD)  # accumulate RGB+A together
-        self.surface.blit(self.cone_surface, (0, 0))
-
+                                    special_flags=pygame.BLEND_ADD)
+                
 
 # fix nav polygon so that it takes points in order that are connected then form a polygon
 

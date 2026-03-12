@@ -20,6 +20,7 @@ class Enemy(pygame.sprite.Sprite):
         self.base_image = self._build_image()
         self.rect = self.base_image.get_rect(center=(int(self.position.x), int(self.position.y)))
         self.angle = 0
+        self._vision_dirty = True
 
         # vision
         self.FOV = 60
@@ -68,7 +69,7 @@ class Enemy(pygame.sprite.Sprite):
             return_path = a_star(self.waypoints[-1], self.waypoints[0])
             if return_path:
                 self.patrol_path.extend(return_path)
-        print(self.patrol_path)
+        # print(self.patrol_path)
     
     def patrol(self):
         """Simple waypoint-based patrol - move to next waypoint when close enough."""
@@ -152,12 +153,15 @@ class Enemy(pygame.sprite.Sprite):
         if self.state == "patrol":
             self.patrol()
         self.move(dt)
-        self._vision_dirty = (self.position != old_pos or self.angle != old_angle)
+        self._vision_dirty = (
+            self.position.distance_to(old_pos) > 0.5 or
+            abs(self.angle - old_angle) > 0.2
+        )
 
     def build_vision_cone(self, walls):
-        cx, cy = self.rect.center
+        """cx, cy = self.rect.center
         half_fov = self.FOV / 2
-        ARC_STEP = 10  # degrees between arc fill points — lower = smoother
+        ARC_STEP = 5  # degrees between arc fill points — lower = smoother
 
         # Collect wall corner angles as before
         candidate_angles = [self.angle - half_fov, self.angle + half_fov]
@@ -202,6 +206,11 @@ class Enemy(pygame.sprite.Sprite):
                         )
                         points.append(arc_pt)
 
+        return points"""
+        self.angles = self.get_vision_angles()
+        points = [self.rect.center]
+        for angle in self.angles:
+            points.append(self.cast_ray(angle, walls)) # draw a polygon with these points, if not, line is okay
         return points
 
     def get_vision_angles(self):

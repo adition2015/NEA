@@ -100,11 +100,9 @@ class WaypointGraph:
         x_offset, y_offset = x - self.res/2, y - self.res/2
         col, row = x_offset // self.res, y_offset // self.res
         pos = ((col + 0.5) * self.res, (row + 0.5) * self.res)
-        print(pos)
         # Find waypoint at or near the calculated position
         for wp in self.waypoints:
             if wp.pos == pygame.Vector2(pos):
-                print("Found via arith. seq")
                 return wp
         
         # Fallback: find closest waypoint by distance if exact match not found
