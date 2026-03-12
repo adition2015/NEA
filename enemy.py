@@ -11,7 +11,7 @@ class Enemy(pygame.sprite.Sprite):
         self.direction = pygame.Vector2(direction)
         if self.direction.length() > 0:
             self.direction = self.direction.normalize()
-        self.speed = 75*settings.scale_diagonal
+        self.speed = 25
         self.patrol_points = patrol_points
         self.waypoints = []
         self.current_waypoint_index = 0
@@ -23,7 +23,8 @@ class Enemy(pygame.sprite.Sprite):
         self._vision_dirty = True
         self.vision_points = []
         self.vision_cone_colour = (64, 64, 0)
-
+        self.last_seen = None
+        self.player_obs = None
 
         # vision
         self.FOV = 60
@@ -88,12 +89,12 @@ class Enemy(pygame.sprite.Sprite):
         self.target_pos = self.patrol_path[self.patrol_ID]
         if self.position.distance_to(self.target_pos) < 5:
             self.patrol_ID = (self.patrol_ID + 1) % len(self.patrol_path)
-            self.set_direction()
+            self.set_direction(self.patrol_path[self.patrol_ID])
             # print(f"pos: {self.position}, target: {self.target_pos}, dist: {self.position.distance_to(self.target_pos)}")
 
-    def set_direction(self):
+
+    def set_direction(self, target: pygame.Vector2):
         # point towards the current waypoint in the patrol path
-        target = self.patrol_path[self.patrol_ID]
         vec = target - self.position
         if vec.length() > 0:
             self.direction = vec.normalize()
@@ -105,7 +106,7 @@ class Enemy(pygame.sprite.Sprite):
         self.position += offset
         self.rect.center = (int(self.position.x), int(self.position.y))
         # reset direction:
-        self.set_direction()
+        self.set_direction(self.patrol_path[self.patrol_ID])
     
     def rotate(self, dt):
         # Calculate desired angle from direction vector
@@ -134,7 +135,7 @@ class Enemy(pygame.sprite.Sprite):
 
 
     def move(self, dt):
-        self.position += dt * self.speed * self.direction
+        self.position += dt * self.speed * self.direction * settings.scale_diagonal
         self.rect.center = (int(self.position.x), int(self.position.y))
         # update angle (if direction is zero this will produce 0)
         if self.direction.length() > 0:
@@ -152,8 +153,10 @@ class Enemy(pygame.sprite.Sprite):
     def update(self, dt: float):
 
         if self.state == "patrol":
+            self.speed = 75
             self.patrol()
         if self.state == "chase":
+            self.speed = 90
             self.chase()
 
         
@@ -218,13 +221,41 @@ class Enemy(pygame.sprite.Sprite):
         # This properly composites the transparent polygon with the background
         surface.blit(temp_surface, (0, 0))
     
-    def chase(self):
+    
+    def transition_chase(self, player_obs: pygame.Vector2):
+        self.state = "chase"
+        self.vision_cone_colour = (64, 0, 0)
+        self.player_obs = player_obs # position of observed player
+        self.last_seen = self.player_obs
+    
+    def transition_search(self):
+        self.state == "search"
+        self.vision_cone_colour = (64, 64, 0)
+        self.last_seen = self.player_obs
+        self.player_obs = None
+
+    def transition_patrol(self): # attempt to transition to patrol
         pass
+        # search last_seen instead of chasing player
+
+
+    def chase(self):
         # When chasing, there are two stages
         # 1. Following player when enemy has line of sight
         # 2. Searching last player location when lost line of sight
         # Rules:
-        # Enemy should never have access to player position, only level should handle this
-        # Enemy should return to the nearest patrol point when player is lost.
+        # Enemy should never have access to live player position, only level should handle this
+        # Enemy should return to the nearest patrol point when player is lost and search has ended.
+        self.set_direction(self.last_seen)
+        if self.player_obs == None: # if trying to transition to patrol, searches last player position; if not found, does return back to patrol
+            self.transition_search()
+
+
+            
+
         
-        # enemy has attribute self.is_LoS_player, only controlled by level.
+            # check if can see player:
+            
+
+
+    

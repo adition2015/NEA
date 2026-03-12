@@ -37,7 +37,7 @@ class Level:
         self.interactables = [door for door in self.doors]
         self.door_rects = [door.rect for door in self.doors]
 
-        self.graph = WaypointGraph(settings.level_res, self.static_rects, 50*settings.scale_diagonal, self.door_rects)
+        self.graph = WaypointGraph(settings.level_res, self.static_rects, int(50*settings.scale_diagonal), int(10*settings.scale_diagonal), self.door_rects)
         connected = [wp for wp in self.graph.waypoints if wp.neighbours]
         print(f"Waypoints with neighbours: {len(connected)} / {len(self.graph.waypoints)}")
         
@@ -111,7 +111,8 @@ class Level:
         draw_debug(screen, {
             "pos":   self.enemies[0].position,
             "movement_mode": self.player.movement_mode,
-            "fps": round(fps)
+            "fps": round(fps),
+            "enemy_state" : self.enemies[1].state
         })
 
         #debug waypoints
@@ -179,9 +180,11 @@ class Level:
     def update_vision_cones(self):
         for enemy in self.enemies:
             if self.check_player_LoS(enemy):
-                enemy.vision_cone_colour = (64, 0, 0)
+                # initiate chase by setting self.state to chase:
+                enemy.transition_chase(self.player.position)
             else:
-                enemy.vision_cone_colour = (64, 64, 0)
+                enemy.transition_chase(None)     
+
 
     def handle_interaction(self):
         interactable = self.check_interaction()
@@ -231,7 +234,7 @@ class Level:
             for i in enemy.patrol_points:
                 enemy.waypoints.append(self.graph.nearest_waypoint(i))
             enemy.precalculate_patrol_path()
-            enemy.set_direction()
+            enemy.set_direction(enemy.patrol_path[enemy.patrol_ID])
 
     def draw_vision_cones(self):
         self.cone_surface.fill((0, 0, 0))
