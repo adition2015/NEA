@@ -11,7 +11,7 @@ class Enemy(pygame.sprite.Sprite):
         self.direction = pygame.Vector2(direction)
         if self.direction.length() > 0:
             self.direction = self.direction.normalize()
-        self.speed = 50*settings.scale_diagonal
+        self.speed = 75*settings.scale_diagonal
         self.patrol_points = patrol_points
         self.waypoints = []
         self.current_waypoint_index = 0
@@ -21,6 +21,9 @@ class Enemy(pygame.sprite.Sprite):
         self.rect = self.base_image.get_rect(center=(int(self.position.x), int(self.position.y)))
         self.angle = 0
         self._vision_dirty = True
+        self.vision_points = []
+        self.vision_cone_colour = (64, 64, 0)
+
 
         # vision
         self.FOV = 60
@@ -147,11 +150,19 @@ class Enemy(pygame.sprite.Sprite):
         surface.blit(rotated, rect)
     
     def update(self, dt: float):
-        old_pos = pygame.Vector2(self.position)
-        old_angle = self.angle
+
         if self.state == "patrol":
             self.patrol()
+        if self.state == "chase":
+            self.chase()
+
+        
         self.move(dt)
+        self.update_vision()
+    
+    def update_vision(self):
+        old_pos = pygame.Vector2(self.position)
+        old_angle = self.angle
         self._vision_dirty = (
             self.position.distance_to(old_pos) > 0.5 or
             abs(self.angle - old_angle) > 0.2
@@ -206,3 +217,14 @@ class Enemy(pygame.sprite.Sprite):
         # Blit the temporary surface onto the main surface using alpha blending
         # This properly composites the transparent polygon with the background
         surface.blit(temp_surface, (0, 0))
+    
+    def chase(self):
+        pass
+        # When chasing, there are two stages
+        # 1. Following player when enemy has line of sight
+        # 2. Searching last player location when lost line of sight
+        # Rules:
+        # Enemy should never have access to player position, only level should handle this
+        # Enemy should return to the nearest patrol point when player is lost.
+        
+        # enemy has attribute self.is_LoS_player, only controlled by level.

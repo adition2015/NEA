@@ -37,7 +37,7 @@ class Level:
         self.interactables = [door for door in self.doors]
         self.door_rects = [door.rect for door in self.doors]
 
-        self.graph = WaypointGraph(settings.level_res, self.static_rects, 50, self.door_rects)
+        self.graph = WaypointGraph(settings.level_res, self.static_rects, 50*settings.scale_diagonal, self.door_rects)
         connected = [wp for wp in self.graph.waypoints if wp.neighbours]
         print(f"Waypoints with neighbours: {len(connected)} / {len(self.graph.waypoints)}")
         
@@ -54,9 +54,9 @@ class Level:
         # initialise enemies
         self.enemies = [
             Enemy((100, 100), (0, 0), [(100, 100), (100, 200), (200, 100), (400, 400)]),
-            Enemy((600, 600), (0, 0), [(600, 600), (400, 600), (800, 100), (400, 100)]),
-            Enemy((200, 200), (0, 0), [(200, 200), (300, 200), (200, 600), (900, 400)]),
-            Enemy((500, 600), (0, 0), [(500, 600), (200, 100), (700, 100), (100, 500)])
+            Enemy((600, 600), (0, 0), [(600, 600), (400, 600), (800, 100), (400, 100)])
+            #Enemy((200, 200), (0, 0), [(200, 200), (300, 200), (200, 600), (900, 400)]),
+            #Enemy((500, 600), (0, 0), [(500, 600), (200, 100), (700, 100), (100, 500)])
         ]
 
         self.precalculate_patrol_path()
@@ -74,6 +74,7 @@ class Level:
         self._resolve_collisions()
         self.handle_interaction()
         self.check_enemy_interactions()
+        self.update_vision_cones()
         for i in self.enemies:
            i.update(dt)
 
@@ -95,6 +96,7 @@ class Level:
             i.draw(self.surface)
         if self.cone_timer >= self.cone_update_interval:
             self.draw_vision_cones()
+            
             self.cone_timer = 0
         # always blit the cached cone_surface, even on skipped frames
         self.surface.blit(self.cone_surface, (0, 0), special_flags=pygame.BLEND_ADD)
@@ -113,12 +115,12 @@ class Level:
         })
 
         #debug waypoints
-        #for wp in self.graph.waypoints:
-        #   wp.draw(self.surface)
+        for wp in self.graph.waypoints:
+            wp.draw(self.surface)
 
         # debug collision rects:
-        for rect in self.collision_rects:
-            pygame.draw.rect(self.surface, (0, 255, 0), rect, 2)
+        #for rect in self.collision_rects:
+        #   pygame.draw.rect(self.surface, (0, 255, 0), rect, 2)
 
         screen.blit(self.surface, settings.level_offset)
 
@@ -154,6 +156,32 @@ class Level:
                 elif dist > 50 and dist < 60 and door.is_open: # stops player interaction otherwise
                     door.interact(self.collision_rects) 
                    
+    def check_player_LoS(self, enemy):
+        if len(enemy.vision_points) < 3:
+            return False
+        # pygame.draw.polygon doesn't test — use this:
+        return self._point_in_polygon(self.player.position, enemy.vision_points)
+        
+    def _point_in_polygon(self, point: pygame.Vector2, polygon: list) -> bool:
+        """Ray casting algorithm — counts how many polygon edges a ray crosses."""
+        x, y = point
+        inside = False
+        n = len(polygon)
+        j = n - 1
+        for i in range(n):
+            xi, yi = polygon[i]
+            xj, yj = polygon[j]
+            if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi) + xi):
+                inside = not inside
+            j = i
+        return inside
+
+    def update_vision_cones(self):
+        for enemy in self.enemies:
+            if self.check_player_LoS(enemy):
+                enemy.vision_cone_colour = (64, 0, 0)
+            else:
+                enemy.vision_cone_colour = (64, 64, 0)
 
     def handle_interaction(self):
         interactable = self.check_interaction()
@@ -168,8 +196,6 @@ class Level:
 
     def _resolve_collisions(self):
         for rect in self.collision_rects:
-            if abs(rect.centerx - self.player.rect.centerx) > 80:
-                continue
             if self.player.rect.colliderect(rect):
                 offset = self._calculate_pushout(self.player.rect, rect)
                 self.player.resolve_collision(offset)
@@ -210,10 +236,10 @@ class Level:
     def draw_vision_cones(self):
         self.cone_surface.fill((0, 0, 0))
         for enemy in self.enemies:
-            points = enemy.build_vision_cone(self.collision_rects)
-            if len(points) >= 3:
+            enemy.vision_points = enemy.build_vision_cone(self.collision_rects)
+            if len(enemy.vision_points) >= 3:
                 self.cone_temp.fill((0, 0, 0))
-                pygame.draw.polygon(self.cone_temp, (64, 64, 0), points)
+                pygame.draw.polygon(self.cone_temp, enemy.vision_cone_colour, enemy.vision_points)
                 self.cone_surface.blit(self.cone_temp, (0, 0),
                                     special_flags=pygame.BLEND_ADD)
                 
