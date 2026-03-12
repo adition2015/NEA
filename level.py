@@ -21,10 +21,7 @@ class Level:
     def __init__(self, ID, data):
         player_pos = tuple(x//2 for x in settings.level_res) # encode it into data for level.
         self.ID = ID
-        self.player = Player(
-                             position=pygame.Vector2(player_pos),
-                             direction=pygame.Vector2(0, -1)
-                             )
+
         self.surface = pygame.Surface(settings.level_res, pygame.SRCALPHA)
         self.walls = [] # all walls have a rect attribute - this will be called for collisions
         self.doors = []# all doors have a rect attribute - if closed, will be called for collisions
@@ -49,7 +46,10 @@ class Level:
         for door in self.doors:
             door.interact(self.collision_rects)
 
-        
+        self.player = Player(
+                             position=pygame.Vector2(player_pos),
+                             direction=pygame.Vector2(0, -1)
+                             )
 
         # initialise enemies
         self.enemies = [
@@ -116,6 +116,10 @@ class Level:
         #for wp in self.graph.waypoints:
         #   wp.draw(self.surface)
 
+        # debug collision rects:
+        for rect in self.collision_rects:
+            pygame.draw.rect(self.surface, (0, 255, 0), rect, 2)
+
         screen.blit(self.surface, settings.level_offset)
 
     def _load_level(self, data: dict):
@@ -163,12 +167,11 @@ class Level:
         self.player.handle_input(event)
 
     def _resolve_collisions(self):
-        player_rect = self.player.get_collision_rect()
         for rect in self.collision_rects:
-            if abs(rect.centerx - player_rect.centerx) > 80:
+            if abs(rect.centerx - self.player.rect.centerx) > 80:
                 continue
-            if player_rect.colliderect(rect):
-                offset = self._calculate_pushout(player_rect, rect)
+            if self.player.rect.colliderect(rect):
+                offset = self._calculate_pushout(self.player.rect, rect)
                 self.player.resolve_collision(offset)
         for rect in self.collision_rects:
             for enemy in self.enemies:

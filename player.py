@@ -9,7 +9,6 @@ MOVEMENT_TRANSITIONS = {
     3: (2, 1),
 }
 
-level_offset = pygame.Vector2(40, 40)
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, position: pygame.Vector2, direction: pygame.Vector2):
@@ -50,7 +49,7 @@ class Player(pygame.sprite.Sprite):
         return surface
 
     def _rotate_to_mouse(self):
-        mouse_pos = pygame.Vector2(pygame.mouse.get_pos()) - level_offset
+        mouse_pos = pygame.Vector2(pygame.mouse.get_pos()) - settings.level_offset
         diff = mouse_pos - self.position
 
         if diff.length() > 0:
@@ -79,12 +78,9 @@ class Player(pygame.sprite.Sprite):
 
     def move(self, dt: float):
         if self.move_condition:
-            self.position += self.direction * SPEED[self.movement_mode] * dt
+            self.position += self.direction * SPEED[self.movement_mode] * dt * settings.scale_diagonal
             self.rect.center = (int(self.position.x), int(self.position.y))
 
-    def get_collision_rect(self) -> pygame.Rect:
-        "exposes self.rect for level to use"
-        return self.rect
     
     def resolve_collision(self, offset: pygame.Vector2):
         self.position += offset

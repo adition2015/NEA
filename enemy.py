@@ -11,7 +11,7 @@ class Enemy(pygame.sprite.Sprite):
         self.direction = pygame.Vector2(direction)
         if self.direction.length() > 0:
             self.direction = self.direction.normalize()
-        self.speed = 100
+        self.speed = 50*settings.scale_diagonal
         self.patrol_points = patrol_points
         self.waypoints = []
         self.current_waypoint_index = 0
@@ -53,7 +53,6 @@ class Enemy(pygame.sprite.Sprite):
             (int(16 * scale), int(7 * scale)), 
             (int(16 * scale), int(23 * scale))
         ])
-        return surface
         return surface
     
     def precalculate_patrol_path(self):
@@ -159,54 +158,6 @@ class Enemy(pygame.sprite.Sprite):
         )
 
     def build_vision_cone(self, walls):
-        """cx, cy = self.rect.center
-        half_fov = self.FOV / 2
-        ARC_STEP = 5  # degrees between arc fill points — lower = smoother
-
-        # Collect wall corner angles as before
-        candidate_angles = [self.angle - half_fov, self.angle + half_fov]
-        for rect in walls:
-            for corner in [(rect.left, rect.top), (rect.right, rect.top),
-                        (rect.left, rect.bottom), (rect.right, rect.bottom)]:
-                ex, ey = corner
-                raw_angle = math.degrees(math.atan2(-(ey - cy), ex - cx))
-                diff = (raw_angle - self.angle + 180) % 360 - 180
-                if abs(diff) <= half_fov + 1:
-                    for offset in (-0.0001, 0, 0.0001):
-                        candidate_angles.append(self.angle + diff + offset)
-
-        candidate_angles = sorted(set(candidate_angles))
-        candidate_angles = [a for a in candidate_angles
-                            if abs((a - self.angle + 180) % 360 - 180) <= half_fov]
-
-        # Cast rays and tag whether they reached full distance (no wall hit)
-        raw_points = []
-        for angle in candidate_angles:
-            pt = self.cast_ray(angle, walls)
-            px, py = pt
-            dist = math.hypot(px - cx, py - cy)
-            at_max = dist >= self.view_distance - 1
-            raw_points.append((angle, pt, at_max))
-
-        # Build final point list, inserting arc fills between open rays
-        points = [(cx, cy)]
-        for i, (angle, pt, at_max) in enumerate(raw_points):
-            points.append(pt)
-            if i + 1 < len(raw_points):
-                next_angle, next_pt, next_at_max = raw_points[i + 1]
-                if at_max and next_at_max:
-                    # Both rays hit open air — fill the gap with arc points
-                    steps = int((next_angle - angle) / ARC_STEP)
-                    for s in range(1, steps):
-                        fill_angle = angle + s * ARC_STEP
-                        rad = math.radians(fill_angle)
-                        arc_pt = (
-                            cx + math.cos(rad) * self.view_distance,
-                            cy - math.sin(rad) * self.view_distance
-                        )
-                        points.append(arc_pt)
-
-        return points"""
         self.angles = self.get_vision_angles()
         points = [self.rect.center]
         for angle in self.angles:
