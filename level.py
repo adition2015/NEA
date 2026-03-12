@@ -1,4 +1,4 @@
-import pygame, math
+import pygame
 from player import Player
 from enemy import Enemy
 from settings import *
@@ -26,7 +26,6 @@ class Level:
                              direction=pygame.Vector2(0, -1)
                              )
         self.surface = pygame.Surface(settings.level_res, pygame.SRCALPHA)
-        self.vision_overlay = pygame.Surface(settings.level_res, pygame.SRCALPHA)
         self.walls = [] # all walls have a rect attribute - this will be called for collisions
         self.doors = []# all doors have a rect attribute - if closed, will be called for collisions
         self._load_level(data)
@@ -61,6 +60,10 @@ class Level:
         ]
 
         self.precalculate_patrol_path()
+
+
+        # preallocated drawing surface for vision cones:
+        self.cone_surface = pygame.Surface(settings.level_res, pygame.SRCALPHA)
 
     def update(self, dt):
         self.player.update(dt)
@@ -102,8 +105,8 @@ class Level:
         })
 
         #debug waypoints
-        for wp in self.graph.waypoints:
-            wp.draw(self.surface)
+        #for wp in self.graph.waypoints:
+        #   wp.draw(self.surface)
 
         screen.blit(self.surface, settings.level_offset)
 
@@ -194,13 +197,13 @@ class Level:
             enemy.set_direction()
 
     def draw_vision_cones(self):
-        self.vision_overlay.fill((0, 0, 0, 0))  # clear with transparent
+        self.cone_surface.fill((0, 0, 0, 0))
         for enemy in self.enemies:
-            if enemy._vision_dirty:
-                points = enemy.build_vision_cone(self.collision_rects)
-                if len(points) >= 3:
-                    pygame.draw.polygon(self.vision_overlay, (255, 255, 0, 64), points)
-        self.surface.blit(self.vision_overlay, (0, 0))
+            points = enemy.build_vision_cone(self.collision_rects)
+            if len(points) >= 3:
+                pygame.draw.polygon(self.cone_surface, (255, 255, 0, 64), points)
+        # BLEND_RGBA_ADD makes overlapping regions accumulate brightness
+        self.surface.blit(self.cone_surface, (0, 0))
 
 
 # fix nav polygon so that it takes points in order that are connected then form a polygon

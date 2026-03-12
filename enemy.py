@@ -1,6 +1,8 @@
 import pygame, numpy as np, math
 from grid_waypoint import *
 from pathfinding import *
+from functools import lru_cache
+from settings import settings
 
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, position: tuple, direction: tuple, patrol_points: list):
@@ -22,9 +24,9 @@ class Enemy(pygame.sprite.Sprite):
         # vision
         self.FOV = 60
         self.cone_res = 0.5 # lines per degree
-        self.view_distance = 200
+        self.view_distance = int(300 * settings.scale_diagonal)  # Scale vision range to resolution
 
-        self.turn_speed = 180 # degrees per second
+        self.turn_speed = 360 # degrees per second
 
         self.state = "patrol"
         self.patrol_ID = 0
@@ -33,13 +35,24 @@ class Enemy(pygame.sprite.Sprite):
 
 
     def _build_image(self) -> pygame.Surface:
-        """Build the player's base sprite surface (facing right = 0 degrees)."""
-        surface = pygame.Surface((32, 32), pygame.SRCALPHA)  # SRCALPHA = transparent background
+        """Build the enemy's base sprite surface (facing right = 0 degrees)."""
+        BASE_SIZE = 16
+        BASE_RADIUS = BASE_SIZE / 2
+        size = int(BASE_SIZE * settings.scale_diagonal)
+        surface = pygame.Surface((size, size), pygame.SRCALPHA)  # SRCALPHA = transparent background
 
         # Body
-        pygame.draw.circle(surface, (240, 10, 20), (16, 16), 16)
+        radius = int(BASE_RADIUS * settings.scale_diagonal)
+        pygame.draw.circle(surface, (240, 10, 20), (size // 2, size // 2), radius)
+        
         # Direction indicator (nose) — points RIGHT by default (angle 0)
-        pygame.draw.polygon(surface, (255, 255, 255), [(24, 16), (16, 7), (16, 23)])
+        scale = settings.scale_diagonal
+        pygame.draw.polygon(surface, (255, 255, 255), [
+            (int(24 * scale), int(16 * scale)), 
+            (int(16 * scale), int(7 * scale)), 
+            (int(16 * scale), int(23 * scale))
+        ])
+        return surface
         return surface
     
     def precalculate_patrol_path(self):
@@ -142,36 +155,52 @@ class Enemy(pygame.sprite.Sprite):
         self._vision_dirty = (self.position != old_pos or self.angle != old_angle)
 
     def build_vision_cone(self, walls):
-        # walls is a list of pygame.Rect
         cx, cy = self.rect.center
         half_fov = self.FOV / 2
+        ARC_STEP = 10  # degrees between arc fill points — lower = smoother
 
-        # Collect all wall endpoints
-        endpoints = []
+        # Collect wall corner angles as before
+        candidate_angles = [self.angle - half_fov, self.angle + half_fov]
         for rect in walls:
             for corner in [(rect.left, rect.top), (rect.right, rect.top),
                         (rect.left, rect.bottom), (rect.right, rect.bottom)]:
-                endpoints.append(corner)
+                ex, ey = corner
+                raw_angle = math.degrees(math.atan2(-(ey - cy), ex - cx))
+                diff = (raw_angle - self.angle + 180) % 360 - 180
+                if abs(diff) <= half_fov + 1:
+                    for offset in (-0.0001, 0, 0.0001):
+                        candidate_angles.append(self.angle + diff + offset)
 
-        # Get angles of each endpoint relative to enemy facing
-        candidate_angles = []
-        for ex, ey in endpoints:
-            raw_angle = math.degrees(math.atan2(-(ey - cy), ex - cx))
-            # Normalise difference against facing angle
-            diff = (raw_angle - self.angle + 180) % 360 - 180
-            if abs(diff) <= half_fov + 1:  # +1 for edge tolerance
-                candidate_angles.append(self.angle + diff - 0.0001)
-                candidate_angles.append(self.angle + diff)
-                candidate_angles.append(self.angle + diff + 0.0001)
+        candidate_angles = sorted(set(candidate_angles))
+        candidate_angles = [a for a in candidate_angles
+                            if abs((a - self.angle + 180) % 360 - 180) <= half_fov]
 
-        # Always include the cone boundary rays
-        candidate_angles += [self.angle - half_fov, self.angle + half_fov]
+        # Cast rays and tag whether they reached full distance (no wall hit)
+        raw_points = []
+        for angle in candidate_angles:
+            pt = self.cast_ray(angle, walls)
+            px, py = pt
+            dist = math.hypot(px - cx, py - cy)
+            at_max = dist >= self.view_distance - 1
+            raw_points.append((angle, pt, at_max))
 
+        # Build final point list, inserting arc fills between open rays
         points = [(cx, cy)]
-        for angle in sorted(set(candidate_angles)):
-            diff = (angle - self.angle + 180) % 360 - 180
-            if abs(diff) <= half_fov:
-                points.append(self.cast_ray(angle, walls))
+        for i, (angle, pt, at_max) in enumerate(raw_points):
+            points.append(pt)
+            if i + 1 < len(raw_points):
+                next_angle, next_pt, next_at_max = raw_points[i + 1]
+                if at_max and next_at_max:
+                    # Both rays hit open air — fill the gap with arc points
+                    steps = int((next_angle - angle) / ARC_STEP)
+                    for s in range(1, steps):
+                        fill_angle = angle + s * ARC_STEP
+                        rad = math.radians(fill_angle)
+                        arc_pt = (
+                            cx + math.cos(rad) * self.view_distance,
+                            cy - math.sin(rad) * self.view_distance
+                        )
+                        points.append(arc_pt)
 
         return points
 

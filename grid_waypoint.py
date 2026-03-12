@@ -17,9 +17,13 @@ class WaypointGraph:
         self.collision_rects = collision_rects
         self.door_rects = door_rects
 
+        # enemy variables:
+        self.sdv = pygame.Vector2(20, 20) # enemy size displacement  at base_level
+        
         # initialisation
         self.waypoints = self._gen_waypoints(level_res)
         self.graph = self._build_waypoint_graph()
+        
         
 
     def _gen_waypoints(self, level_res):
@@ -82,8 +86,9 @@ class WaypointGraph:
 
     def _line_blocked(self, p1: pygame.Vector2, p2: pygame.Vector2):
         blocked = False
+        # enemy width = 32 but for extra room, self.sdv accounts for 40:
         for rect in self.collision_rects:
-            if rect.clipline(p1, p2):
+            if rect.clipline(p1 - self.sdv, p2 - self.sdv) or rect.clipline(p1 + self.sdv, p2 + self.sdv): # blocks if enemy at centre of one waypoint is obstructed at all.
                 blocked = True
         return blocked
 

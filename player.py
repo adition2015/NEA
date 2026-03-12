@@ -1,4 +1,5 @@
 import pygame
+from settings import settings
 
 SPEED = {1: 75, 2: 200, 3: 350}
 
@@ -30,12 +31,22 @@ class Player(pygame.sprite.Sprite):
 
     def _build_image(self) -> pygame.Surface:
         """Build the player's base sprite surface (facing right = 0 degrees)."""
-        surface = pygame.Surface((32, 32), pygame.SRCALPHA)  # SRCALPHA = transparent background
+        BASE_SIZE = 16
+        BASE_RADIUS = BASE_SIZE / 2
+        size = int(BASE_SIZE * settings.scale_diagonal)
+        surface = pygame.Surface((size, size), pygame.SRCALPHA)  # SRCALPHA = transparent background
 
         # Body
-        pygame.draw.circle(surface, (60, 120, 220), (16, 16), 16)
+        radius = int(BASE_RADIUS * settings.scale_diagonal)
+        pygame.draw.circle(surface, (60, 120, 220), (size // 2, size // 2), radius)
+        
         # Direction indicator (nose) — points RIGHT by default (angle 0)
-        pygame.draw.polygon(surface, (255, 255, 255), [(24, 16), (16, 7), (16, 23)])
+        scale = settings.scale_diagonal
+        pygame.draw.polygon(surface, (255, 255, 255), [
+            (int(24 * scale), int(16 * scale)), 
+            (int(16 * scale), int(7 * scale)), 
+            (int(16 * scale), int(23 * scale))
+        ])
         return surface
 
     def _rotate_to_mouse(self):
