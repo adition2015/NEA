@@ -12,7 +12,6 @@ class Enemy(pygame.sprite.Sprite):
         if self.direction.length() > 0:
             self.direction = self.direction.normalize()
         self.speed = 25
-        self.speed = 25
         self.patrol_points = patrol_points
         self.waypoints = []
         self.current_waypoint_index = 0
@@ -223,7 +222,6 @@ class Enemy(pygame.sprite.Sprite):
             self.angle += rotation_amount if angle_diff > 0 else -rotation_amount
 
     def move(self, dt):
-        self.position += dt * self.speed * self.direction * settings.scale_diagonal
         self.position += dt * self.speed * self.direction * settings.scale_diagonal
         self.rect.center = (int(self.position.x), int(self.position.y))
         if self.direction.length() > 0:
