@@ -24,10 +24,13 @@ class GameStateManager:
     def init_game_state(self):
         self.running = True
         self.game_state = "playing"
+        self.paused = False
+
 
     # runtime functions
     def run(self):
         while self.running:
+            self.game_state = "playing" if not self.paused else "paused"
             dt = self.clock.tick(settings.FPS) / 1000 
             fps = self.clock.get_fps()   
             self.handle_events()
@@ -40,12 +43,10 @@ class GameStateManager:
             self.level.update(dt)
 
     def draw(self, fps):
-        self.screen.fill((0, 0, 0))
-
         if self.game_state == "playing":
+            self.screen.fill((0, 0, 0))
             self.level.draw(self.screen, fps)
-
-        pygame.display.flip()
+            pygame.display.flip()
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -54,7 +55,8 @@ class GameStateManager:
             # -- temp -- 
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 self.running = False
-            
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_p:
+                self.paused = not self.paused
             if self.game_state == "playing":
                 self.level.handle_input(event) # handle level input
 
