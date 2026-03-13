@@ -33,6 +33,7 @@ class Level:
         self.door_rects = [door.rect for door in self.doors]
 
         self.graph = WaypointGraph(settings.level_res, self.static_rects, int(50*settings.scale_diagonal), int(10*settings.scale_diagonal), self.door_rects)
+        self.graph = WaypointGraph(settings.level_res, self.static_rects, int(50*settings.scale_diagonal), int(10*settings.scale_diagonal), self.door_rects)
         connected = [wp for wp in self.graph.waypoints if wp.neighbours]
         print(f"Waypoints with neighbours: {len(connected)} / {len(self.graph.waypoints)}")
 
@@ -265,6 +266,7 @@ class Level:
             for i in enemy.patrol_points:
                 enemy.waypoints.append(self.graph.nearest_waypoint(i))
             enemy.precalculate_patrol_path()
+            enemy.set_direction(enemy.patrol_path[enemy.patrol_ID])
             enemy.set_direction(enemy.patrol_path[enemy.patrol_ID])
 
     def draw_vision_cones(self):
