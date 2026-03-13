@@ -128,13 +128,14 @@ def load_level(level_id: int) -> dict:
         doors = [(e["x"], e["y"], e["orientation"]) for e in doors_raw]
         
         # Process enemy data: convert lists to tuples for Vector2 creation
+        # utils.py — load_level: copy patrol_points so mutation can't affect source data
         enemies = [
             {
-                "position": tuple(e["position"]),
-                "direction": tuple(e["direction"]),
-                "patrol_points": e["patrol_points"]
+            "position": tuple(e["position"]),
+            "direction": tuple(e["direction"]),
+            "patrol_points": [list(p) for p in e["patrol_points"]]  # deep copy
             }
-            for e in enemies_raw
+        for e in enemies_raw
         ]
 
         return {

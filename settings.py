@@ -17,14 +17,7 @@ class Settings:
         self.FPS = 120
         self.flags = 0 # integer needed as error pops up with none.
 
-    def scale_coords(self, coords: list):
-        # returns a list of coordinates scaled by level_scale
-        for coord in coords:
-            coord[0] = int(coord[0]*self.scale_x)
-            coord[1] = int(coord[1]*self.scale_y)
-            
-        print(coords)
-        return coords
+
     def calc_level_res(self):
         self.level_res = level_res(self.levelScalar, self.res)
         self.level_offset = level_offset(self.levelScalar, self.res)
