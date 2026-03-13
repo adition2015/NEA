@@ -106,6 +106,8 @@ def load_level(level_id: int) -> dict:
 
 #level_creation(wall_fields, "levels/level_01_walls.json")
 #level_creation(door_fields, "levels/level_01_doors.json")
+# test comment
+
 
 # --- draw debug ---
 
