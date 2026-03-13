@@ -12,8 +12,9 @@ class Waypoint:
     
 
 class WaypointGraph:
-    def __init__(self, level_res: tuple, collision_rects: list, res: int, door_rects: list):
+    def __init__(self, level_res: tuple, collision_rects: list, res: int, buffer: int, door_rects: list):
         self.res = res
+        self.buffer = buffer
         self.collision_rects = collision_rects
         self.door_rects = door_rects
 
@@ -29,7 +30,6 @@ class WaypointGraph:
     def _gen_waypoints(self, level_res):
         """Generates waypoints with resolution density, i.e. one waypoint every res pixels."""
         # add a buffer of 10 pixels to ignore surrounding walls.
-        buffer = 10
         w, h = level_res
         cols = round(w // self.res)
         rows = round(h // self.res)
@@ -39,7 +39,7 @@ class WaypointGraph:
         for i in range(cols):
             for j in range(rows):
                 # create wp_rect, check for collisions, place waypoint in centre if no collision rects
-                wp_rect = pygame.Rect((i * self.res) + buffer/2, (j * self.res) + buffer / 2, self.res-buffer, self.res-buffer)
+                wp_rect = pygame.Rect((i * self.res) + self.buffer/2, (j * self.res) + self.buffer / 2, self.res-self.buffer, self.res-self.buffer)
                 if wp_rect.collidelist(self.collision_rects) == -1:
                     wps.append(Waypoint(wp_rect.center))
         

@@ -83,25 +83,36 @@ door_fields = {
     "orientation": int,
 }
 
+enemy_fields = {
+    "position": tuple,
+    "direction": tuple,
+    "patrol_points": list
+}
+
 def load_level(level_id: int) -> dict:
         """
         Loads wall and door data from JSON files for a given level ID.
         Returns a dict compatible with Level._load_level()
         """
         def read_json(path):
-            with open(path, "r") as f:
-                content = f.read().strip()
-                return json.loads(content) if content else []
+            if os.path.exists(path):
+                with open(path, "r") as f:
+                    content = f.read().strip()
+                    return json.loads(content) if content else []
+            return []
 
         walls_raw = read_json(f"levels/level_{level_id:02d}_walls.json")
         doors_raw = read_json(f"levels/level_{level_id:02d}_doors.json")
+        enemies_raw = read_json(f"levels/level_{level_id:02d}_enemies.json")
 
-        walls = [(e["x"], e["y"], e["width"], e["height"]) for e in walls_raw]
-        doors = [(e["x"], e["y"], e["orientation"]) for e in doors_raw]
+        walls = [(e["x"], e["y"], e["width"], e["height"]) for e in walls_raw] if doors_raw else []
+        doors = [(e["x"], e["y"], e["orientation"]) for e in doors_raw] if walls_raw else []
+        enemies = [(e["position"], e["direction"], e["patrol_points"]) for e in enemies_raw] if enemies_raw else []
 
         return {
             "walls": walls,
             "doors": doors,
+            "enemies": enemies
         }
 
 #level_creation(wall_fields, "levels/level_01_walls.json")
