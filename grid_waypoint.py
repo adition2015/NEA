@@ -80,11 +80,11 @@ class WaypointGraph:
                 candidates.append(wp)
         
         for wp in candidates:
-            if not self._line_blocked(waypoint, wp.pos):
+            if not self.line_blocked(waypoint, wp.pos):
                 neighbours.append(wp)
         return neighbours
 
-    def _line_blocked(self, p1: pygame.Vector2, p2: pygame.Vector2):
+    def line_blocked(self, p1: pygame.Vector2, p2: pygame.Vector2):
         blocked = False
         # enemy width = 32 but for extra room, self.sdv accounts for 40:
         for rect in self.collision_rects:
@@ -93,22 +93,23 @@ class WaypointGraph:
         return blocked
 
     def nearest_waypoint(self, pt):
-        # Finds nearest waypoint to a given point
-        # waypoints generate from res/2, res/2, incrementing res onwards
-        # find nearest x and y coordinate near the arith seq res/2 + n
         x, y = pt
         x_offset, y_offset = x - self.res/2, y - self.res/2
         col, row = x_offset // self.res, y_offset // self.res
         pos = ((col + 0.5) * self.res, (row + 0.5) * self.res)
-        # Find waypoint at or near the calculated position
         for wp in self.waypoints:
             if wp.pos == pygame.Vector2(pos):
                 return wp
+
+        # Fallback: filter to waypoints with clear LoS, then pick closest
+        pt_vec = pygame.Vector2(pt)
+        visible = [wp for wp in self.waypoints if not self.line_blocked(pt_vec, wp.pos)]
+        if visible:
+            return min(visible, key=lambda wp: wp.pos.distance_to(pt_vec))
         
-        # Fallback: find closest waypoint by distance if exact match not found
-        closest_wp = min(self.waypoints, key=lambda wp: wp.pos.distance_to(pt))
-        return closest_wp
-        
+        # Last resort: closest by distance if nothing has LoS (shouldn't normally happen)
+        return min(self.waypoints, key=lambda wp: wp.pos.distance_to(pt_vec))
+            
         
         
      

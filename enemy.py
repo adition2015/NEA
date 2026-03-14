@@ -46,17 +46,16 @@ class Enemy(pygame.sprite.Sprite):
         self.return_path = []  # Vector2 positions A* computed back to patrol
         self.return_id = 0
 
+
     # ------------------------------------------------------------------
     # Visual
     # ------------------------------------------------------------------
 
     def _build_image(self) -> pygame.Surface:
-        size = 16
+        size = max(1, int(16 * settings.scale_total_x)) # this is used to ensure at very small resolutions, no zero error.
         surface = pygame.Surface((size, size), pygame.SRCALPHA)
-
-        radius = size/2
+        radius = size / 2
         pygame.draw.circle(surface, (240, 10, 20), (size // 2, size // 2), radius)
-
         return surface
 
     # ------------------------------------------------------------------
@@ -107,19 +106,15 @@ class Enemy(pygame.sprite.Sprite):
 
 
     def chase(self):
-        """Direct pursuit. Level guarantees player_obs is set while state == 'chase'."""
         dist_to_player = self.position.distance_to(self.player_obs)
         min_dist = 30 * settings.scale_total_x
         if dist_to_player < min_dist:
-            # Move away to maintain minimum distance
-            vec = self.position - self.player_obs
-            if vec.length() > 0:
-                self.direction = vec.normalize()
-            else:
-                self.direction = pygame.Vector2(0, 0)
-        else:
+            # Hold position — just face the player, don't move
+            self.speed = 0
             self.set_direction(self.player_obs)
-
+        else:
+            self.speed = 100 * settings.scale_total_x
+            self.set_direction(self.player_obs)
     # ------------------------------------------------------------------
     # Search
     # ------------------------------------------------------------------
@@ -179,7 +174,7 @@ class Enemy(pygame.sprite.Sprite):
     def scout(self):
         if self.scout_id >= len(self.scout_angles) or self.state != "scout":
             self.target_angle = None   # ← clear so rotate() uses direction again
-            self.transition_patrol()
+            self.transition_returning_to_patrol()
             return
 
         self.target_angle = self.scout_angles[self.scout_id]
@@ -190,6 +185,17 @@ class Enemy(pygame.sprite.Sprite):
     # ------------------------------------------------------------------
     # Return to patrol
     # ------------------------------------------------------------------
+
+    def transition_returning_to_patrol(self):
+        if self.state != "returning_to_patrol":
+            self.state = "returning_to_patrol"
+            self.vision_cone_colour = (64, 64, 0)
+            self.target_angle = None
+            self.player_obs = None
+            self.return_path = []   # Level will compute and set this via update_vision_cones
+            self.return_id = 0
+
+
 
     def returning_to_patrol(self):
         """
@@ -291,7 +297,7 @@ class Enemy(pygame.sprite.Sprite):
 
     def build_vision_cone(self, walls):
         self.angles = self.get_vision_angles()
-        points = [self.position.x, self.position.y]
+        points = [(self.position.x, self.position.y)]
         for angle in self.angles:
             points.append(self.cast_ray(angle, walls))
         return points

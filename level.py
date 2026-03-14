@@ -25,14 +25,15 @@ class Level:
         self.surface = pygame.Surface(settings.true_level_res, pygame.SRCALPHA)
         self.walls = []
         self.doors = []
+        self.hiding_spots = []
         self._load_level(data)
 
         self.collision_rects = [wall.rect for wall in self.walls]
         self.static_rects = self.collision_rects.copy()
-        self.interactables = [door for door in self.doors]
+        self.interactables = [door for door in self.doors] + [h for h in self.hiding_spots]
         self.door_rects = [door.rect for door in self.doors]
 
-        self.graph = WaypointGraph(settings.true_level_res, self.static_rects, 50 * settings.scale_total_x, 10 * settings.scale_total_y, self.door_rects)
+        self.graph = WaypointGraph(settings.true_level_res, self.static_rects, 50 * settings.scale_total_x, 10 * settings.scale_diagonal, self.door_rects)
         connected = [wp for wp in self.graph.waypoints if wp.neighbours]
         print(f"Waypoints with neighbours: {len(connected)} / {len(self.graph.waypoints)}")
 
@@ -107,7 +108,7 @@ class Level:
             "movement_mode": self.player.movement_mode,
             "fps": round(fps),
             "enemy_states" : [f"{i}:{enemy.state}" for i, enemy in enumerate(self.enemies)],
-            "enemy_paths": [f"{i}:P{len(enemy.patrol_path)} S{len(enemy.search_path)} R{len(enemy.return_path)}" for i, enemy in enumerate(self.enemies)]
+            "enemy_directions": [f"{i}:{enemy.direction}" for i, enemy in enumerate(self.enemies)]
         }, size=16)
 
     def draw_enemy_paths(self):
@@ -147,6 +148,11 @@ class Level:
             scaled_x = x * settings.scale_total_x
             scaled_y = y * settings.scale_total_y
             self.doors.append(Door(scaled_x, scaled_y, o))
+
+        for (x, y) in data.get("hiding_spots", []):
+            scaled_x = x * settings.scale_total_x
+            scaled_y = y * settings.scale_total_y
+            self.hiding_spots.append(HidingSpot(scaled_x, scaled_y))
 
     def check_interaction(self):
         if self.player.interact_signal == True:
@@ -202,7 +208,8 @@ class Level:
                 # and hand it to the enemy to begin the search phase.
                 # need to add a half second for the enemy to regain sight of the player to stop player avoiding via moving behind enemy.
                 # to make enemy feel more responsive and intelligent, the enemy should know the player's position for 0.5 seconds after losing sight.
-                if enemy.LoS_timer <= 0:
+                if enemy.LoS_timer <= 0 or self.graph.line_blocked(enemy.position, self.player.position):
+                    # this ensures the enemy is not chasing the player through a wall for 0.5 seconds, but still can react to player.
                     search_path = self._compute_search_path(enemy)
                     enemy.transition_search(search_path)
                 else:
@@ -268,12 +275,9 @@ class Level:
                 self.player.resolve_collision(offset)
         for rect in self.collision_rects:
             for enemy in self.enemies:
-                if abs(rect.centerx - enemy.rect.centerx) > 80:
-                    continue
                 if enemy.rect.colliderect(rect):
                     offset = self._calculate_pushout(enemy.rect, rect)
                     enemy.resolve_collision(offset)
-
 
     def _calculate_pushout(self, player_rect: pygame.Rect, wall_rect: pygame.Rect):
         overlap_left   = wall_rect.right  - player_rect.left
@@ -371,3 +375,17 @@ class Door:
     def draw(self, surface):
         colour = (113, 93, 76) if self.is_open else (75, 57, 41)
         pygame.draw.rect(surface, colour, self.rect)
+
+class HidingSpot:
+    def __init__(self, x, y):
+        self.width, self.height = 32 * settings.scale_total_x, 32 * settings.scale_total_y
+        self.rect = pygame.rect.Rect(x, y, self.width, self.height)
+        self.in_use = False
+    
+    def draw(self, surface):
+        colour = (0, 128, 128) if not self.in_use else (102, 178, 178)
+        pygame.draw.rect(surface, colour, self.rect)
+
+    
+
+    

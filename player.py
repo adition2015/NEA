@@ -30,14 +30,10 @@ class Player(pygame.sprite.Sprite):
         self.interact_signal = False
 
     def _build_image(self) -> pygame.Surface:
-        """Build the player's base sprite surface (facing right = 0 degrees)."""
-        size = 16
-        surface = pygame.Surface((size, size), pygame.SRCALPHA)  # SRCALPHA = transparent background
-
-        # Body
-        radius = size/2
+        size = max(1, int(16 * settings.scale_total_x))
+        surface = pygame.Surface((size, size), pygame.SRCALPHA)
+        radius = size / 2
         pygame.draw.circle(surface, (60, 120, 220), (size // 2, size // 2), radius)
-
         return surface
 
     def _rotate_to_mouse(self):
