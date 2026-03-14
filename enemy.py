@@ -13,6 +13,7 @@ class Enemy(pygame.sprite.Sprite):
             self.direction = self.direction.normalize()
         self.speed = 25 * settings.scale_total_x
         self.patrol_points = patrol_points
+        self.scale_patrol_points()
         self.waypoints = []
         self.current_waypoint_index = 0
 
@@ -29,9 +30,9 @@ class Enemy(pygame.sprite.Sprite):
         self.target_angle = None
 
         # vision
-        self.FOV = 60
+        self.FOV = 100
         self.cone_res = 0.5
-        self.view_distance = 300 * settings.scale_total_x
+        self.view_distance = 150 * settings.scale_total_x
 
         self.turn_speed = 360  # degrees per second
 
@@ -61,6 +62,13 @@ class Enemy(pygame.sprite.Sprite):
     # ------------------------------------------------------------------
     # Patrol
     # ------------------------------------------------------------------
+
+    def scale_patrol_points(self):
+        scaled_patrol_pts = []
+        for p in self.patrol_points:
+            scaled_patrol_pts.append((p[0] * settings.scale_total_x, p[1] * settings.scale_total_y))
+        self.patrol_points = scaled_patrol_pts
+
 
     def precalculate_patrol_path(self):
         self.patrol_path = []

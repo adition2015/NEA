@@ -37,11 +37,11 @@ class Settings:
         self.scale_total_x = self.true_level_res[0] / BASE_LEVEL_RES[0]
         self.scale_total_y = self.true_level_res[1] / BASE_LEVEL_RES[1]
         
-        print(f"scale_x: {settings.scale_x}, scale_y: {settings.scale_y}, scale_diagonal: {settings.scale_diagonal}")
+        print(f"scale_x: {settings.scale_total_x}, scale_y: {settings.scale_total_y}, scale_diagonal: {settings.scale_diagonal}")
 
     def init_resolution(self):
         if self.is_fullscreen:
-            self.flags = pygame.FULLSCREEN|pygame.HWSURFACE
+            self.flags = 0
             self.res = pygame.display.get_desktop_sizes()[0]
             print(self.res)
         self.calc_level_res()

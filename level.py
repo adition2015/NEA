@@ -26,6 +26,7 @@ class Level:
         self.walls = []
         self.doors = []
         self.hiding_spots = []
+        self.enemies = []
         self._load_level(data)
 
         self.collision_rects = [wall.rect for wall in self.walls]
@@ -33,7 +34,7 @@ class Level:
         self.interactables = [door for door in self.doors] + [h for h in self.hiding_spots]
         self.door_rects = [door.rect for door in self.doors]
 
-        self.graph = WaypointGraph(settings.true_level_res, self.static_rects, 50 * settings.scale_total_x, 10 * settings.scale_diagonal, self.door_rects)
+        self.graph = WaypointGraph(settings.true_level_res, self.static_rects, 50 * settings.scale_diagonal, 10 * settings.scale_diagonal, self.door_rects)
         connected = [wp for wp in self.graph.waypoints if wp.neighbours]
         print(f"Waypoints with neighbours: {len(connected)} / {len(self.graph.waypoints)}")
 
@@ -46,12 +47,12 @@ class Level:
                              direction=pygame.Vector2(0, -1)
                              )
 
-        self.enemies = [
+        """self.enemies = [
             Enemy((100 * settings.scale_total_x, 100 * settings.scale_total_y), (0, 0), [(p[0] * settings.scale_total_x, p[1] * settings.scale_total_y) for p in [(100, 100), (100, 200), (200, 100), (400, 400)]]),
             Enemy((600 * settings.scale_total_x, 600 * settings.scale_total_y), (0, 0), [(p[0] * settings.scale_total_x, p[1] * settings.scale_total_y) for p in [(600, 600), (400, 600), (800, 100), (400, 100)]])
             #Enemy((200, 200), (0, 0), [(200, 200), (300, 200), (200, 600), (900, 400)]),
             #Enemy((500, 600), (0, 0), [(500, 600), (200, 100), (700, 100), (100, 500)])
-        ]
+        ]"""
 
         self.precalculate_patrol_path()
 
@@ -104,12 +105,19 @@ class Level:
         screen.blit(self.surface, settings.level_offset)
 
         draw_debug(screen, {
-            "pos":   self.enemies[0].position if self.enemies else "No enemies",
+            "cursor_pos":  self.relative_cursor_pos(),
             "movement_mode": self.player.movement_mode,
             "fps": round(fps),
             "enemy_states" : [f"{i}:{enemy.state}" for i, enemy in enumerate(self.enemies)],
             "enemy_directions": [f"{i}:{enemy.direction}" for i, enemy in enumerate(self.enemies)]
         }, size=16)
+
+    # cursor pos relative to level:
+    def relative_cursor_pos(self):
+        mouse_pos = pygame.Vector2(pygame.mouse.get_pos())
+        relative_pos = mouse_pos - settings.level_offset
+        return tuple(relative_pos)
+
 
     def draw_enemy_paths(self):
         """Draw lines representing the paths enemies are following for debugging."""
@@ -153,6 +161,12 @@ class Level:
             scaled_x = x * settings.scale_total_x
             scaled_y = y * settings.scale_total_y
             self.hiding_spots.append(HidingSpot(scaled_x, scaled_y))
+
+        for (position, direction, patrol_points) in data.get("enemies", []):
+            scaled_position = (position[0] * settings.scale_total_x, position[1] * settings.scale_total_y)
+            self.enemies.append(Enemy(scaled_position, direction, patrol_points)) 
+
+    
 
     def check_interaction(self):
         if self.player.interact_signal == True:

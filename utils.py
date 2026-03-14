@@ -31,6 +31,10 @@ def level_creation(fields: dict, destination: str):
             return float(raw)
         elif expected_type == list:
             return json.loads(raw)  # e.g. "[1, 2, 3]"
+        elif expected_type == tuple:
+            raw = raw.strip("()")
+            raw = raw.split(",")
+            return tuple([int(i) for i in raw])
         else:
             return raw  # str fallback
 
@@ -62,8 +66,8 @@ def level_creation(fields: dict, destination: str):
     with open(destination, "r") as f:
         content = f.read().strip()
         existing = json.loads(content) if content else []
-    
-    existing.extend(new_entries)
+    if count > 0:
+        existing.extend(new_entries)
 
     with open(destination, "w") as f:
         json.dump(existing, f, indent=4)
@@ -135,7 +139,7 @@ def load_level(level_id: int) -> dict:
 #level_creation(wall_fields, "levels/level_01_walls.json")
 #level_creation(door_fields, "levels/level_01_doors.json")
 #level_creation(enemy_fields, "levels/level_01_enemies.json")
-# test comment
+#level_creation(hiding_spot_fields, "levels/level_01_hiding_spots.json")
 
 
 # --- draw debug ---
@@ -152,3 +156,5 @@ def draw_debug(surface, data: dict, pos=(10, 10), size=15, colour=(0, 255, 0)):
         text = font.render(f"{label}: {value}", True, colour)
         surface.blit(text, (x, y))
         y += size + 2
+
+
