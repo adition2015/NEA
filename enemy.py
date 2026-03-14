@@ -34,7 +34,6 @@ class Enemy(pygame.sprite.Sprite):
         self.view_distance = 300 * settings.scale_total_x
 
         self.turn_speed = 360  # degrees per second
-        self.turn_speed = 360  # degrees per second
 
         self.state = "patrol"
         self.patrol_ID = 0
@@ -91,8 +90,7 @@ class Enemy(pygame.sprite.Sprite):
             print("Enemy has no patrol path associated.")
             return
         self.follow_patrol_path()
-            return
-        self.follow_patrol_path()
+
 
     def follow_patrol_path(self):
         self.target_pos = self.patrol_path[self.patrol_ID]
@@ -273,7 +271,6 @@ class Enemy(pygame.sprite.Sprite):
             self.angle = desired_angle
         else:
             self.angle += rotation_amount if angle_diff > 0 else -rotation_amount
-            self.angle += rotation_amount if angle_diff > 0 else -rotation_amount
 
     def move(self, dt, desired_angle = None):
         self.position += dt * self.speed * self.direction
@@ -304,13 +301,11 @@ class Enemy(pygame.sprite.Sprite):
         points = [self.rect.center]
         for angle in self.angles:
             points.append(self.cast_ray(angle, walls))
-            points.append(self.cast_ray(angle, walls))
         return points
 
     def get_vision_angles(self):
         self.ray_count = int(self.FOV * self.cone_res)
         half = self.FOV / 2
-        return [
         return [
             self.angle - half + i * (1 / self.cone_res)
             for i in range(self.ray_count)
@@ -318,7 +313,6 @@ class Enemy(pygame.sprite.Sprite):
 
     def cast_ray(self, angle, collision_rects):
         rad = math.radians(angle)
-        direction = pygame.Vector2(math.cos(rad), -math.sin(rad))
         direction = pygame.Vector2(math.cos(rad), -math.sin(rad))
         start = pygame.Vector2(self.rect.center)
         end = start + direction * self.view_distance

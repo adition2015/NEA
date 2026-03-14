@@ -25,7 +25,6 @@ class GameStateManager:
         self.running = True
         self.paused = False
         self.game_state = "playing"
-        self.paused = False
 
 
     # runtime functions
@@ -47,9 +46,7 @@ class GameStateManager:
     def draw(self, fps):
         if self.game_state == "playing":
             self.screen.fill((0, 0, 0))
-            self.screen.fill((0, 0, 0))
             self.level.draw(self.screen, fps)
-            pygame.display.flip()
             pygame.display.flip()
 
     def handle_events(self):

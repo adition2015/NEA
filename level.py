@@ -70,7 +70,6 @@ class Level:
         self.update_vision_cones(dt)
         for i in self.enemies:
             i.update(dt)
-            i.update(dt)
 
     def draw(self, screen, fps):
         self.surface.fill((20, 20, 20))
@@ -352,7 +351,6 @@ class Wall:
 
 class Door:
     def __init__(self, x, y, o: int):
-    def __init__(self, x, y, o: int):
         self.is_open = True
         self.width = 5 if o == 0 else 50
         self.height = 50 if o == 0 else 5
@@ -383,7 +381,5 @@ class Door:
             self.open(collision_rects)
 
     def draw(self, surface):
-        colour = (113, 93, 76) if self.is_open else (75, 57, 41)
-        pygame.draw.rect(surface, colour, self.rect)
         colour = (113, 93, 76) if self.is_open else (75, 57, 41)
         pygame.draw.rect(surface, colour, self.rect)
