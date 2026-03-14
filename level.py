@@ -5,6 +5,7 @@ from settings import *
 from utils import draw_debug
 from grid_waypoint import *
 from pathfinding import distance, a_star
+from pathfinding import distance, a_star
 # Links:
 "https://www.youtube.com/watch?v=UT_tKPLejyU" # pygame layers for drawing on screen
 
@@ -36,6 +37,7 @@ class Level:
         connected = [wp for wp in self.graph.waypoints if wp.neighbours]
         print(f"Waypoints with neighbours: {len(connected)} / {len(self.graph.waypoints)}")
 
+
         for door in self.doors:
             door.interact(self.collision_rects)
 
@@ -60,12 +62,14 @@ class Level:
 
     def update(self, dt):
         self.cone_timer += dt * 1000
+        self.cone_timer += dt * 1000
         self.player.update(dt)
         self._resolve_collisions()
         self.handle_interaction()
         self.check_enemy_interactions()
         self.update_vision_cones(dt)
         for i in self.enemies:
+            i.update(dt)
             i.update(dt)
 
     def draw(self, screen, fps):
@@ -85,6 +89,8 @@ class Level:
 
         for i in self.walls:
             i.draw(self.surface)
+
+        
 
         
 
@@ -157,8 +163,10 @@ class Level:
                     target_candidates[i] = distance_vec.magnitude()
             if len(target_candidates) > 0:
                 key = min(target_candidates, key=target_candidates.get)
+                key = min(target_candidates, key=target_candidates.get)
                 self.player.interact_signal = False
                 return key
+
 
     def check_enemy_interactions(self):
         for enemy in self.enemies:
@@ -173,6 +181,7 @@ class Level:
         if len(enemy.vision_points) < 3:
             return False
         return self._point_in_polygon(self.player.position, enemy.vision_points)
+
 
     def _point_in_polygon(self, point: pygame.Vector2, polygon: list) -> bool:
         """Ray casting algorithm — counts how many polygon edges a ray crosses."""
@@ -272,12 +281,19 @@ class Level:
                     offset = self._calculate_pushout(enemy.rect, rect)
                     enemy.resolve_collision(offset)
 
+
     def _calculate_pushout(self, player_rect: pygame.Rect, wall_rect: pygame.Rect):
         overlap_left   = wall_rect.right  - player_rect.left
         overlap_right  = player_rect.right - wall_rect.left
         overlap_top    = wall_rect.bottom - player_rect.top
         overlap_bottom = player_rect.bottom - wall_rect.top
+        overlap_left   = wall_rect.right  - player_rect.left
+        overlap_right  = player_rect.right - wall_rect.left
+        overlap_top    = wall_rect.bottom - player_rect.top
+        overlap_bottom = player_rect.bottom - wall_rect.top
 
+        min_x = overlap_left  if overlap_left  < overlap_right  else -overlap_right
+        min_y = overlap_top   if overlap_top   < overlap_bottom else -overlap_bottom
         min_x = overlap_left  if overlap_left  < overlap_right  else -overlap_right
         min_y = overlap_top   if overlap_top   < overlap_bottom else -overlap_bottom
 
@@ -326,13 +342,16 @@ class Wall:
         self.height = height
         self.rect = self.build_wall()
 
+
     def build_wall(self):
         return pygame.rect.Rect(self.x, self.y, self.width, self.height)
+
 
     def draw(self, surface):
         pygame.draw.rect(surface, (255, 255, 255), self.rect)
 
 class Door:
+    def __init__(self, x, y, o: int):
     def __init__(self, x, y, o: int):
         self.is_open = True
         self.width = 5 if o == 0 else 50
@@ -350,6 +369,7 @@ class Door:
                 print("Door not added to collision_rects")
             return collision_rects
 
+
     def close(self, collision_rects):
         if self.is_open:
             self.is_open = False
@@ -363,5 +383,7 @@ class Door:
             self.open(collision_rects)
 
     def draw(self, surface):
+        colour = (113, 93, 76) if self.is_open else (75, 57, 41)
+        pygame.draw.rect(surface, colour, self.rect)
         colour = (113, 93, 76) if self.is_open else (75, 57, 41)
         pygame.draw.rect(surface, colour, self.rect)

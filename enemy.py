@@ -34,6 +34,7 @@ class Enemy(pygame.sprite.Sprite):
         self.view_distance = 300 * settings.scale_total_x
 
         self.turn_speed = 360  # degrees per second
+        self.turn_speed = 360  # degrees per second
 
         self.state = "patrol"
         self.patrol_ID = 0
@@ -63,23 +64,33 @@ class Enemy(pygame.sprite.Sprite):
     # Patrol
     # ------------------------------------------------------------------
 
+
+    # ------------------------------------------------------------------
+    # Patrol
+    # ------------------------------------------------------------------
+
     def precalculate_patrol_path(self):
         self.patrol_path = []
         for i in range(len(self.waypoints) - 1):
+            path_between_pts = a_star(self.waypoints[i], self.waypoints[i + 1])
             path_between_pts = a_star(self.waypoints[i], self.waypoints[i + 1])
             if path_between_pts is None:
                 print(f"Warning: no path between waypoint {i} and {i+1} — skipping segment")
                 continue
             self.patrol_path.extend(path_between_pts)
 
+
         if len(self.waypoints) >= 2:
             return_path = a_star(self.waypoints[-1], self.waypoints[0])
             if return_path:
                 self.patrol_path.extend(return_path)
 
+
     def patrol(self):
         if not self.patrol_path:
             print("Enemy has no patrol path associated.")
+            return
+        self.follow_patrol_path()
             return
         self.follow_patrol_path()
 
@@ -256,10 +267,12 @@ class Enemy(pygame.sprite.Sprite):
             self.angle = desired_angle
             return True
 
+
         rotation_amount = dt * self.turn_speed
         if abs(rotation_amount) >= abs(angle_diff):
             self.angle = desired_angle
         else:
+            self.angle += rotation_amount if angle_diff > 0 else -rotation_amount
             self.angle += rotation_amount if angle_diff > 0 else -rotation_amount
 
     def move(self, dt, desired_angle = None):
@@ -269,6 +282,10 @@ class Enemy(pygame.sprite.Sprite):
             self.rotate(dt, desired_angle)
         else:
             self.angle = 0
+
+    # ------------------------------------------------------------------
+    # Vision
+    # ------------------------------------------------------------------
 
     # ------------------------------------------------------------------
     # Vision
@@ -287,11 +304,13 @@ class Enemy(pygame.sprite.Sprite):
         points = [self.rect.center]
         for angle in self.angles:
             points.append(self.cast_ray(angle, walls))
+            points.append(self.cast_ray(angle, walls))
         return points
 
     def get_vision_angles(self):
         self.ray_count = int(self.FOV * self.cone_res)
         half = self.FOV / 2
+        return [
         return [
             self.angle - half + i * (1 / self.cone_res)
             for i in range(self.ray_count)
@@ -300,8 +319,10 @@ class Enemy(pygame.sprite.Sprite):
     def cast_ray(self, angle, collision_rects):
         rad = math.radians(angle)
         direction = pygame.Vector2(math.cos(rad), -math.sin(rad))
+        direction = pygame.Vector2(math.cos(rad), -math.sin(rad))
         start = pygame.Vector2(self.rect.center)
         end = start + direction * self.view_distance
+
 
         hit_point = end
         for wall in collision_rects:
@@ -313,6 +334,7 @@ class Enemy(pygame.sprite.Sprite):
 
     def draw_vision_cone(self, surface, points):
         if len(points) < 2:
+            return
             return
         temp_surface = pygame.Surface((surface.get_width(), surface.get_height()), pygame.SRCALPHA)
         pygame.draw.polygon(temp_surface, (255, 255, 0, 64), points)

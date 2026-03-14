@@ -55,14 +55,14 @@ def level_creation(fields: dict, destination: str):
                     print(f"  Invalid input, expected {expected_type.__name__}. Try again.")
         new_entries.append(entry)
 
-    # Load existing data if file exists
-    if os.path.exists(destination):
-        with open(destination, "r") as f:
-            content = f.read().strip()
-            existing = json.loads(content) if content else []
-    else:
-        existing = []
-
+    # Load existing data if file exists, else create file 
+    if not os.path.exists(destination):
+        with open(destination, 'w') as f:
+            json.dump({}, f, indent=4)
+    with open(destination, "r") as f:
+        content = f.read().strip()
+        existing = json.loads(content) if content else []
+    
     existing.extend(new_entries)
 
     with open(destination, "w") as f:
@@ -91,8 +91,13 @@ enemy_fields = {
 
 def load_level(level_id: int) -> dict:
         """
-        Loads wall and door data from JSON files for a given level ID.
+        Loads wall, door, and enemy data from JSON files for a given level ID.
         Returns a dict compatible with Level._load_level()
+        
+        Expected JSON files:
+        - levels/level_XX_walls.json: Wall geometry
+        - levels/level_XX_doors.json: Door positions and orientations
+        - levels/level_XX_enemies.json: Enemy spawns and patrol points (optional)
         """
         def read_json(path):
             if os.path.exists(path):
@@ -101,6 +106,7 @@ def load_level(level_id: int) -> dict:
                     return json.loads(content) if content else []
             return []
 
+        # Load structural data (walls and doors)
         walls_raw = read_json(f"levels/level_{level_id:02d}_walls.json")
         doors_raw = read_json(f"levels/level_{level_id:02d}_doors.json")
         enemies_raw = read_json(f"levels/level_{level_id:02d}_enemies.json")
@@ -115,6 +121,9 @@ def load_level(level_id: int) -> dict:
             "enemies": enemies
         }
 
+    
+
+
 #level_creation(wall_fields, "levels/level_01_walls.json")
 #level_creation(door_fields, "levels/level_01_doors.json")
 # test comment
@@ -122,7 +131,7 @@ def load_level(level_id: int) -> dict:
 
 # --- draw debug ---
 
-def draw_debug(surface, data: dict, pos=(10, 10), size=10, colour=(0, 255, 0)):
+def draw_debug(surface, data: dict, pos=(10, 10), size=15, colour=(0, 255, 0)):
     """
     data: any dict of label->value pairs you want displayed
     """
