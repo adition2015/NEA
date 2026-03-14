@@ -1,4 +1,4 @@
-import pygame, numpy as np, math
+import pygame, math
 from grid_waypoint import *
 from pathfinding import *
 from functools import lru_cache
@@ -11,7 +11,7 @@ class Enemy(pygame.sprite.Sprite):
         self.direction = pygame.Vector2(direction)
         if self.direction.length() > 0:
             self.direction = self.direction.normalize()
-        self.speed = 25
+        self.speed = 25 * settings.scale_total_x
         self.patrol_points = patrol_points
         self.waypoints = []
         self.current_waypoint_index = 0
@@ -29,7 +29,7 @@ class Enemy(pygame.sprite.Sprite):
         # vision
         self.FOV = 60
         self.cone_res = 0.5
-        self.view_distance = int(300 * settings.scale_diagonal)
+        self.view_distance = 300 * settings.scale_total_x
 
         self.turn_speed = 360  # degrees per second
 
@@ -40,25 +40,21 @@ class Enemy(pygame.sprite.Sprite):
         self.search_path = []  # Vector2 positions A* computed to last_seen
         self.search_id = 0     # index along search_path
 
+        # return
+        self.return_path = []  # Vector2 positions A* computed back to patrol
+        self.return_id = 0
+
     # ------------------------------------------------------------------
     # Visual
     # ------------------------------------------------------------------
 
     def _build_image(self) -> pygame.Surface:
-        BASE_SIZE = 16
-        BASE_RADIUS = BASE_SIZE / 2
-        size = int(BASE_SIZE * settings.scale_diagonal)
+        size = 16
         surface = pygame.Surface((size, size), pygame.SRCALPHA)
 
-        radius = int(BASE_RADIUS * settings.scale_diagonal)
+        radius = size/2
         pygame.draw.circle(surface, (240, 10, 20), (size // 2, size // 2), radius)
 
-        scale = settings.scale_diagonal
-        pygame.draw.polygon(surface, (255, 255, 255), [
-            (int(24 * scale), int(16 * scale)),
-            (int(16 * scale), int(7 * scale)),
-            (int(16 * scale), int(23 * scale))
-        ])
         return surface
 
     # ------------------------------------------------------------------
@@ -105,7 +101,17 @@ class Enemy(pygame.sprite.Sprite):
 
     def chase(self):
         """Direct pursuit. Level guarantees player_obs is set while state == 'chase'."""
-        self.set_direction(self.player_obs)
+        dist_to_player = self.position.distance_to(self.player_obs)
+        min_dist = 30 * settings.scale_total_x
+        if dist_to_player < min_dist:
+            # Move away to maintain minimum distance
+            vec = self.position - self.player_obs
+            if vec.length() > 0:
+                self.direction = vec.normalize()
+            else:
+                self.direction = pygame.Vector2(0, 0)
+        else:
+            self.set_direction(self.player_obs)
 
     # ------------------------------------------------------------------
     # Search
@@ -143,8 +149,9 @@ class Enemy(pygame.sprite.Sprite):
         if self.position.distance_to(target) < 5:
             self.search_id += 1
             if self.search_id >= len(self.search_path):
-                # Reached last_seen — player not found; give up and resume patrol
-                self.transition_patrol()
+                # Reached last_seen — player not found; return to patrol
+                self.state = "returning_to_patrol"
+                self.return_path = []  # will be computed by Level
                 return
             self.set_direction(self.search_path[self.search_id])
 
@@ -152,20 +159,56 @@ class Enemy(pygame.sprite.Sprite):
     # Return to patrol
     # ------------------------------------------------------------------
 
+    def returning_to_patrol(self):
+        """
+        Walk the pre-computed path back to the patrol path.
+        Transition to patrol once the end of the path is reached.
+        """
+        if not self.return_path:
+            self.transition_patrol()
+            return
+
+        target = self.return_path[self.return_id]
+        self.set_direction(target)
+
+        if self.position.distance_to(target) < 5:
+            self.return_id += 1
+            if self.return_id >= len(self.return_path):
+                self.transition_patrol()
+                return
+            self.set_direction(self.return_path[self.return_id])
+
     def transition_patrol(self):
-        """Called when search ends without re-acquiring the player."""
+        """Called when returning to patrol ends."""
         self.state = "patrol"
         self.vision_cone_colour = (64, 64, 0)
         self.player_obs = None
         self.last_seen = None
         self.search_path = []
         self.search_id = 0
+        self.return_path = []
+        self.return_id = 0
         if self.patrol_path:
+            # Find the closest point in patrol_path and set patrol_ID to it
+            min_dist = float('inf')
+            closest_id = 0
+            for i, pt in enumerate(self.patrol_path):
+                dist = self.position.distance_to(pt)
+                if dist < min_dist:
+                    min_dist = dist
+                    closest_id = i
+            self.patrol_ID = closest_id
             self.set_direction(self.patrol_path[self.patrol_ID])
 
     # ------------------------------------------------------------------
     # Movement helpers
     # ------------------------------------------------------------------
+
+    def set_return_path(self, path: list):
+        self.return_path = path or []
+        self.return_id = 0
+        if self.return_path:
+            self.set_direction(self.return_path[0])
 
     def set_direction(self, target: pygame.Vector2):
         vec = pygame.Vector2(target) - self.position
@@ -195,7 +238,7 @@ class Enemy(pygame.sprite.Sprite):
             self.angle += rotation_amount if angle_diff > 0 else -rotation_amount
 
     def move(self, dt):
-        self.position += dt * self.speed * self.direction * settings.scale_diagonal
+        self.position += dt * self.speed * self.direction
         self.rect.center = (int(self.position.x), int(self.position.y))
         if self.direction.length() > 0:
             self.rotate(dt)
@@ -261,14 +304,17 @@ class Enemy(pygame.sprite.Sprite):
 
     def update(self, dt: float):
         if self.state == "patrol":
-            self.speed = 75
+            self.speed = 75 * settings.scale_total_x
             self.patrol()
         elif self.state == "chase":
-            self.speed = 90
+            self.speed = 90 * settings.scale_total_x
             self.chase()
         elif self.state == "search":
-            self.speed = 65
+            self.speed = 65 * settings.scale_total_x
             self.search()
+        elif self.state == "returning_to_patrol":
+            self.speed = 65 * settings.scale_total_x
+            self.returning_to_patrol()
 
         self.move(dt)
         self.update_vision()

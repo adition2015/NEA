@@ -19,10 +19,10 @@ def scale_rect(x, y, w, h):
 
 class Level:
     def __init__(self, ID, data):
-        player_pos = tuple(x//2 for x in settings.level_res)
+        player_pos = (BASE_LEVEL_RES[0] // 2 * settings.scale_total_x, BASE_LEVEL_RES[1] // 2 * settings.scale_total_y)
         self.ID = ID
 
-        self.surface = pygame.Surface(settings.level_res, pygame.SRCALPHA)
+        self.surface = pygame.Surface(settings.true_level_res, pygame.SRCALPHA)
         self.walls = []
         self.doors = []
         self._load_level(data)
@@ -32,7 +32,7 @@ class Level:
         self.interactables = [door for door in self.doors]
         self.door_rects = [door.rect for door in self.doors]
 
-        self.graph = WaypointGraph(settings.level_res, self.static_rects, int(50*settings.scale_diagonal), int(10*settings.scale_diagonal), self.door_rects)
+        self.graph = WaypointGraph(settings.true_level_res, self.static_rects, 50 * settings.scale_total_x, 10 * settings.scale_total_y, self.door_rects)
         connected = [wp for wp in self.graph.waypoints if wp.neighbours]
         print(f"Waypoints with neighbours: {len(connected)} / {len(self.graph.waypoints)}")
 
@@ -45,16 +45,16 @@ class Level:
                              )
 
         self.enemies = [
-            Enemy((100, 100), (0, 0), [(100, 100), (100, 200), (200, 100), (400, 400)]),
-            Enemy((600, 600), (0, 0), [(600, 600), (400, 600), (800, 100), (400, 100)])
+            Enemy((100 * settings.scale_total_x, 100 * settings.scale_total_y), (0, 0), [(p[0] * settings.scale_total_x, p[1] * settings.scale_total_y) for p in [(100, 100), (100, 200), (200, 100), (400, 400)]]),
+            Enemy((600 * settings.scale_total_x, 600 * settings.scale_total_y), (0, 0), [(p[0] * settings.scale_total_x, p[1] * settings.scale_total_y) for p in [(600, 600), (400, 600), (800, 100), (400, 100)]])
             #Enemy((200, 200), (0, 0), [(200, 200), (300, 200), (200, 600), (900, 400)]),
             #Enemy((500, 600), (0, 0), [(500, 600), (200, 100), (700, 100), (100, 500)])
         ]
 
         self.precalculate_patrol_path()
 
-        self.cone_surface = pygame.Surface(settings.level_res).convert()
-        self.cone_temp = pygame.Surface(settings.level_res).convert()
+        self.cone_surface = pygame.Surface(settings.true_level_res).convert()
+        self.cone_temp = pygame.Surface(settings.true_level_res).convert()
         self.cone_update_interval = 50  # ms between cone redraws (= 20 FPS)
         self.cone_timer = 0
 
@@ -90,33 +90,66 @@ class Level:
         for wp in self.graph.waypoints:
             wp.draw(self.surface)
 
+        # Draw enemy paths for debugging
+        self.draw_enemy_paths()
+
         # debug collision rects:
         #for rect in self.collision_rects:
         #   pygame.draw.rect(self.surface, (0, 255, 0), rect, 2)
-
         screen.blit(self.surface, settings.level_offset)
 
         draw_debug(screen, {
-            "pos":   self.enemies[0].position,
+            "pos":   self.enemies[0].position if self.enemies else "No enemies",
             "movement_mode": self.player.movement_mode,
             "fps": round(fps),
-            "enemy_state" : [enemy.state for enemy in self.enemies]
+            "enemy_states" : [f"{i}:{enemy.state}" for i, enemy in enumerate(self.enemies)],
+            "enemy_paths": [f"{i}:P{len(enemy.patrol_path)} S{len(enemy.search_path)} R{len(enemy.return_path)}" for i, enemy in enumerate(self.enemies)]
         }, size=16)
+
+    def draw_enemy_paths(self):
+        """Draw lines representing the paths enemies are following for debugging."""
+        for enemy in self.enemies:
+            # Draw patrol path in green
+            if len(enemy.patrol_path) > 1:
+                points = [(int(p.x), int(p.y)) for p in enemy.patrol_path]
+                pygame.draw.lines(self.surface, (0, 255, 0), False, points, 3)
+                # Draw small circles at waypoints
+                for p in enemy.patrol_path:
+                    pygame.draw.circle(self.surface, (0, 255, 0), (int(p.x), int(p.y)), 4)
+            
+            # Draw search path in yellow
+            if len(enemy.search_path) > 1:
+                points = [(int(p.x), int(p.y)) for p in enemy.search_path]
+                pygame.draw.lines(self.surface, (255, 255, 0), False, points, 3)
+                for p in enemy.search_path:
+                    pygame.draw.circle(self.surface, (255, 255, 0), (int(p.x), int(p.y)), 4)
+            
+            # Draw return path in blue
+            if len(enemy.return_path) > 1:
+                points = [(int(p.x), int(p.y)) for p in enemy.return_path]
+                pygame.draw.lines(self.surface, (0, 0, 255), False, points, 3)
+                for p in enemy.return_path:
+                    pygame.draw.circle(self.surface, (0, 0, 255), (int(p.x), int(p.y)), 4)
 
     def _load_level(self, data: dict):
         for (x, y, w, h) in data.get("walls", []):
-            self.walls.append(Wall(*scale_rect(x, y, w, h)))
+            scaled_x = x * settings.scale_total_x
+            scaled_y = y * settings.scale_total_y
+            scaled_w = w * settings.scale_total_x
+            scaled_h = h * settings.scale_total_y
+            self.walls.append(Wall(scaled_x, scaled_y, scaled_w, scaled_h))
 
         for (x, y, o) in data.get("doors", []):
-            sx, sy = int(x * settings.scale_x), int(y * settings.scale_y)
-            self.doors.append(Door(sx, sy, o))
+            scaled_x = x * settings.scale_total_x
+            scaled_y = y * settings.scale_total_y
+            self.doors.append(Door(scaled_x, scaled_y, o))
 
     def check_interaction(self):
         if self.player.interact_signal == True:
             target_candidates = {}
             for i in self.interactables:
                 distance_vec = self.player.position - i.rect.center
-                if distance_vec.magnitude() <= 50:
+                if distance_vec.magnitude() <= 50 * settings.scale_total_x:
                     target_candidates[i] = distance_vec.magnitude()
             if len(target_candidates) > 0:
                 key = min(target_candidates, key=target_candidates.get)
@@ -127,9 +160,9 @@ class Level:
         for enemy in self.enemies:
             for door in self.doors:
                 dist = pygame.Vector2(door.rect.center).distance_to(enemy.position)
-                if dist < 40 and not door.is_open:
+                if dist < 40 * settings.scale_total_x and not door.is_open:
                     door.interact(self.collision_rects)
-                elif dist > 50 and dist < 60 and door.is_open:
+                elif dist > 50 * settings.scale_total_x and dist < 60 * settings.scale_total_x and door.is_open:
                     door.interact(self.collision_rects)
 
     def check_player_LoS(self, enemy):
@@ -162,6 +195,11 @@ class Level:
                 # and hand it to the enemy to begin the search phase.
                 search_path = self._compute_search_path(enemy)
                 enemy.transition_search(search_path)
+            elif enemy.state == "returning_to_patrol":
+                # Compute return path if not already set
+                if not enemy.return_path:
+                    return_path = self._compute_return_path(enemy)
+                    enemy.set_return_path(return_path)
             # "patrol" or "search" with no LoS: do nothing.
             # The enemy calls transition_patrol() itself when the search
             # path is exhausted without re-acquiring the player.
@@ -176,6 +214,28 @@ class Level:
             return []
         start_wp = self.graph.nearest_waypoint(enemy.position)
         end_wp   = self.graph.nearest_waypoint(enemy.last_seen)
+        path = a_star(start_wp, end_wp)
+        return path if path else []
+
+    def _compute_return_path(self, enemy) -> list:
+        """
+        A* from the enemy's current position to the nearest point on its patrol path.
+        Returns a list[Vector2] or [] if pathfinding fails.
+        """
+        if not enemy.patrol_path:
+            return []
+        # Find the nearest point in patrol_path
+        min_dist = float('inf')
+        nearest_pt = None
+        for pt in enemy.patrol_path:
+            dist = enemy.position.distance_to(pt)
+            if dist < min_dist:
+                min_dist = dist
+                nearest_pt = pt
+        if nearest_pt is None:
+            return []
+        start_wp = self.graph.nearest_waypoint(enemy.position)
+        end_wp = self.graph.nearest_waypoint(nearest_pt)
         path = a_star(start_wp, end_wp)
         return path if path else []
 
@@ -254,8 +314,8 @@ class Door:
         self.is_open = True
         self.width = 5 if o == 0 else 50
         self.height = 50 if o == 0 else 5
-        self.width *= settings.scale_x
-        self.height *= settings.scale_y
+        self.width *= settings.scale_total_x
+        self.height *= settings.scale_total_y
         self.rect = pygame.rect.Rect(x, y, self.width, self.height)
 
     def open(self, collision_rects):
