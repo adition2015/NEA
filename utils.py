@@ -84,15 +84,9 @@ door_fields = {
 }
 
 enemy_fields = {
-    "position":         list,    # [x, y] coordinates
-    "direction":        list,    # [dx, dy] direction vector
-    "patrol_points":    list     # [[x1, y1], [x2, y2], ...] patrol waypoints
-}
-
-waypoint_fields = {
-    "title":            str,     # Name/description of waypoint
-    "x":                int,     # X coordinate
-    "y":                int      # Y coordinate
+    "position": tuple,
+    "direction": tuple,
+    "patrol_points": list
 }
 
 def load_level(level_id: int) -> dict:
@@ -106,42 +100,25 @@ def load_level(level_id: int) -> dict:
         - levels/level_XX_enemies.json: Enemy spawns and patrol points (optional)
         """
         def read_json(path):
-            """Helper to safely read JSON files; returns empty list if file doesn't exist."""
-            try:
+            if os.path.exists(path):
                 with open(path, "r") as f:
                     content = f.read().strip()
                     return json.loads(content) if content else []
-            except FileNotFoundError:
-                return []
+            return []
 
         # Load structural data (walls and doors)
         walls_raw = read_json(f"levels/level_{level_id:02d}_walls.json")
         doors_raw = read_json(f"levels/level_{level_id:02d}_doors.json")
-        
-        # Load enemy spawn data
         enemies_raw = read_json(f"levels/level_{level_id:02d}_enemies.json")
 
-        # Convert walls to tuples for Level class
-        walls = [(e["x"], e["y"], e["width"], e["height"]) for e in walls_raw]
-        
-        # Convert doors to tuples for Level class
-        doors = [(e["x"], e["y"], e["orientation"]) for e in doors_raw]
-        
-        # Process enemy data: convert lists to tuples for Vector2 creation
-        # utils.py — load_level: copy patrol_points so mutation can't affect source data
-        enemies = [
-            {
-            "position": tuple(e["position"]),
-            "direction": tuple(e["direction"]),
-            "patrol_points": [list(p) for p in e["patrol_points"]]  # deep copy
-            }
-        for e in enemies_raw
-        ]
+        walls = [(e["x"], e["y"], e["width"], e["height"]) for e in walls_raw] if doors_raw else []
+        doors = [(e["x"], e["y"], e["orientation"]) for e in doors_raw] if walls_raw else []
+        enemies = [(e["position"], e["direction"], e["patrol_points"]) for e in enemies_raw] if enemies_raw else []
 
         return {
             "walls": walls,
             "doors": doors,
-            "enemies": enemies,  # New key for enemy data
+            "enemies": enemies
         }
 
     
@@ -149,30 +126,8 @@ def load_level(level_id: int) -> dict:
 
 #level_creation(wall_fields, "levels/level_01_walls.json")
 #level_creation(door_fields, "levels/level_01_doors.json")
-# level_creation(enemy_fields, "levels/level_01_enemies.json")
-# level_creation(waypoint_fields, "levels/level_01_waypoints.json")
+# test comment
 
-# --- LEVEL CREATION GUIDE ---
-# To create/edit level content, call level_creation with appropriate field definitions:
-#
-# For new level (e.g., level 02):
-#   level_creation(wall_fields, "levels/level_02_walls.json")
-#   level_creation(door_fields, "levels/level_02_doors.json")
-#   level_creation(enemy_fields, "levels/level_02_enemies.json")
-#
-# Enemy JSON format:
-#   {
-#       "position": [x, y],              # Enemy spawn location
-#       "direction": [dx, dy],           # Initial direction (0,0 for auto)
-#       "patrol_points": [[x1,y1],[x2,y2]...]  # Path to patrol
-#   }
-#
-# Waypoint JSON format (optional, for manual navigation points):
-#   {
-#       "title": "waypoint_name",
-#       "x": 500,
-#       "y": 300
-#   }
 
 # --- draw debug ---
 

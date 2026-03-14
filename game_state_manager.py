@@ -23,13 +23,14 @@ class GameStateManager:
 
     def init_game_state(self):
         self.running = True
-        self.game_state = "playing"
         self.paused = False
+        self.game_state = "playing"
 
 
     # runtime functions
     def run(self):
         while self.running:
+            self.game_state = "playing" if not self.paused else "paused"
             self.game_state = "playing" if not self.paused else "paused"
             dt = self.clock.tick(settings.FPS) / 1000 
             fps = self.clock.get_fps()   
@@ -57,9 +58,9 @@ class GameStateManager:
                 self.running = False
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_p:
                 self.paused = not self.paused
+            
             if self.game_state == "playing":
                 self.level.handle_input(event) # handle level input
-
             
     def init_load_level(self):
         # test level

@@ -15,7 +15,6 @@ class WaypointGraph:
     def __init__(self, level_res: tuple, collision_rects: list, res: int, buffer: int, door_rects: list):
         self.res = res
         self.buffer = buffer
-        self.buffer = buffer
         self.collision_rects = collision_rects
         self.door_rects = door_rects
 
@@ -40,7 +39,6 @@ class WaypointGraph:
         for i in range(cols):
             for j in range(rows):
                 # create wp_rect, check for collisions, place waypoint in centre if no collision rects
-                wp_rect = pygame.Rect((i * self.res) + self.buffer/2, (j * self.res) + self.buffer / 2, self.res-self.buffer, self.res-self.buffer)
                 wp_rect = pygame.Rect((i * self.res) + self.buffer/2, (j * self.res) + self.buffer / 2, self.res-self.buffer, self.res-self.buffer)
                 if wp_rect.collidelist(self.collision_rects) == -1:
                     wps.append(Waypoint(wp_rect.center))
