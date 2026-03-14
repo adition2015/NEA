@@ -18,6 +18,7 @@ class WaypointGraph:
         self.collision_rects = collision_rects
         self.door_rects = door_rects
 
+
         # enemy variables:
         self.sdv = pygame.Vector2(20, 20) # enemy size displacement  at base_level
         
@@ -25,6 +26,10 @@ class WaypointGraph:
         self.waypoints = self._gen_waypoints(level_res)
         self.graph = self._build_waypoint_graph()
         
+        # debug
+        self.scan_rect_count = 0
+        self.fall_back_count = 0
+        self.ultra_fall_back_count = 0
         
 
     def _gen_waypoints(self, level_res):
@@ -60,7 +65,10 @@ class WaypointGraph:
         for wp in self.waypoints:
             neighbours = self._check_neighbours(wp.pos, depth=3)
             wp.neighbours = neighbours
-            wp_dict[wp] = neighbours
+            if wp.neighbours:
+                wp_dict[wp] = neighbours
+            else:
+                self.waypoints.remove(wp)
         
         return wp_dict # for storage of waypoints
             
@@ -94,21 +102,20 @@ class WaypointGraph:
 
     def nearest_waypoint(self, pt):
         x, y = pt
-        x_offset, y_offset = x % self.res, y % self.res
-        col, row = (x - x_offset) // self.res, (y - y_offset) // self.res
-        pos = ((col + 0.5) * self.res, (row + 0.5) * self.res)
-        for wp in self.waypoints:
-            if wp.pos == pygame.Vector2(pos):
-                return wp
-
-        # Fallback: filter to waypoints with clear LoS, then pick closest
+        # draw a square rect with 4 * self.res length with center, x, y
         pt_vec = pygame.Vector2(pt)
-        visible = [wp for wp in self.waypoints if not self.line_blocked(pt_vec, wp.pos)]
-        if visible:
-            return min(visible, key=lambda wp: wp.pos.distance_to(pt_vec))
-        
+        scan_rect = pygame.Rect(x - 2*self.res, y - 2*self.res, 4*self.res, 4*self.res)
+        candidates = [wp for wp in self.waypoints if (scan_rect.collidepoint(wp.pos) and not self.line_blocked(pt_vec, wp.pos))]
+        if candidates:
+            self.scan_rect_count += 1
+            n_wp = min(candidates, key = lambda wp: wp.pos.distance_to(pt_vec))
+            print(f'{pt_vec}:{n_wp.pos}')
+            return n_wp
+        self.ultra_fall_back_count += 1
         # Last resort: closest by distance if nothing has LoS (shouldn't normally happen)
-        return min(self.waypoints, key=lambda wp: wp.pos.distance_to(pt_vec))
+        n_wp = min(self.waypoints, key=lambda wp: wp.pos.distance_to(pt_vec))
+        print(f'Last Resort: {pt_vec}:{n_wp.pos}')
+        return n_wp
             
         
         

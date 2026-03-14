@@ -55,7 +55,7 @@ class Level:
         ]"""
 
         self.precalculate_patrol_path()
-
+        print(f'{self.graph.scan_rect_count}/{self.graph.fall_back_count}/{self.graph.ultra_fall_back_count}')
         self.cone_surface = pygame.Surface(settings.true_level_res).convert()
         self.cone_temp = pygame.Surface(settings.true_level_res).convert()
         self.cone_update_interval = 50  # ms between cone redraws (= 20 FPS)
