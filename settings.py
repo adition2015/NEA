@@ -31,7 +31,7 @@ class Settings:
         # Uses the ratio of diagonals between actual and base resolution
         import math
         base_diagonal = math.sqrt(BASE_LEVEL_RES[0]**2 + BASE_LEVEL_RES[1]**2)
-        current_diagonal = math.sqrt(self.level_res[0]**2 + self.level_res[1]**2)
+        current_diagonal = math.sqrt(self.true_level_res[0]**2 + self.true_level_res[1]**2)
         self.scale_diagonal = current_diagonal / base_diagonal
         
         self.scale_total_x = self.true_level_res[0] / BASE_LEVEL_RES[0]

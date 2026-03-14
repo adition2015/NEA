@@ -64,7 +64,7 @@ class Level:
         self._resolve_collisions()
         self.handle_interaction()
         self.check_enemy_interactions()
-        self.update_vision_cones()
+        self.update_vision_cones(dt)
         for i in self.enemies:
             i.update(dt)
 
@@ -86,16 +86,20 @@ class Level:
         for i in self.walls:
             i.draw(self.surface)
 
+        
 
+        # draw debug waypoints
         for wp in self.graph.waypoints:
             wp.draw(self.surface)
-
         # Draw enemy paths for debugging
         self.draw_enemy_paths()
-
+        
         # debug collision rects:
         #for rect in self.collision_rects:
         #   pygame.draw.rect(self.surface, (0, 255, 0), rect, 2)
+
+        # draw overlays
+        self.draw_icons()
         screen.blit(self.surface, settings.level_offset)
 
         draw_debug(screen, {
@@ -184,17 +188,25 @@ class Level:
             j = i
         return inside
 
-    def update_vision_cones(self):
+    def update_vision_cones(self, dt):
         for enemy in self.enemies:
             if self.check_player_LoS(enemy):
                 # Player is visible — pass the live position; transition_chase
                 # updates last_seen only here, so it's always the real sighting.
                 enemy.transition_chase(self.player.position)
+                enemy.LoS_timer = 0.5
             elif enemy.state == "chase":
                 # LoS just broke while chasing — compute A* path to last_seen
                 # and hand it to the enemy to begin the search phase.
-                search_path = self._compute_search_path(enemy)
-                enemy.transition_search(search_path)
+                # need to add a half second for the enemy to regain sight of the player to stop player avoiding via moving behind enemy.
+                # to make enemy feel more responsive and intelligent, the enemy should know the player's position for 0.5 seconds after losing sight.
+                if enemy.LoS_timer <= 0:
+                    search_path = self._compute_search_path(enemy)
+                    enemy.transition_search(search_path)
+                else:
+                    enemy.transition_chase(self.player.position)
+                enemy.LoS_timer -= dt
+                
             elif enemy.state == "returning_to_patrol":
                 # Compute return path if not already set
                 if not enemy.return_path:
@@ -291,6 +303,17 @@ class Level:
                 pygame.draw.polygon(self.cone_temp, enemy.vision_cone_colour, enemy.vision_points)
                 self.cone_surface.blit(self.cone_temp, (0, 0),
                                        special_flags=pygame.BLEND_ADD)
+    
+    def draw_icons(self):
+        player_states = ["sneak", "walk", "run"]
+        state = player_states[self.player.movement_mode - 1]
+        icon = pygame.image.load(os.path.join("assets", "icons", f"{state}.png")).convert_alpha()
+        icon = pygame.transform.scale(icon, (32, 32))
+        # draw on top right of surface
+        self.player.movement_icon_alpha = ((self.player.movement_icon_alpha - 5) % 255)
+        icon.set_alpha(self.player.movement_icon_alpha)
+        self.surface.blit(icon, (settings.true_level_res[0] - icon.get_width()*1.5, icon.get_height() * 0.5))
+        
 
 
 # fix nav polygon so that it takes points in order that are connected then form a polygon

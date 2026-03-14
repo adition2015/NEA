@@ -1,7 +1,7 @@
 import pygame
 from settings import settings
 
-SPEED = {1: 75, 2: 200, 3: 350}
+SPEED = {1: 75, 2: 125, 3: 175}
 
 MOVEMENT_TRANSITIONS = {
     1: (3, 2),
@@ -21,6 +21,7 @@ class Player(pygame.sprite.Sprite):
         self.base_image = self._build_image()
         self.rect = self.base_image.get_rect(center=(int(self.position.x), int(self.position.y)))
         self.angle = 0
+        self.movement_icon_alpha = 255
 
         # --- condiitons - accessed by level object --- 
         self.move_condition = False
@@ -69,7 +70,7 @@ class Player(pygame.sprite.Sprite):
 
     def move(self, dt: float):
         if self.move_condition:
-            self.position += self.direction * SPEED[self.movement_mode] * dt
+            self.position += self.direction * SPEED[self.movement_mode] * dt * settings.scale_diagonal
             self.rect.center = (int(self.position.x), int(self.position.y))
 
     
