@@ -31,7 +31,6 @@ class GameStateManager:
     def run(self):
         while self.running:
             self.game_state = "playing" if not self.paused else "paused"
-            self.game_state = "playing" if not self.paused else "paused"
             dt = self.clock.tick(settings.FPS) / 1000 
             fps = self.clock.get_fps()   
             self.handle_events()

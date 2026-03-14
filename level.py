@@ -5,7 +5,6 @@ from settings import *
 from utils import draw_debug
 from grid_waypoint import *
 from pathfinding import distance, a_star
-from pathfinding import distance, a_star
 # Links:
 "https://www.youtube.com/watch?v=UT_tKPLejyU" # pygame layers for drawing on screen
 
@@ -61,7 +60,6 @@ class Level:
         self.cone_timer = 0
 
     def update(self, dt):
-        self.cone_timer += dt * 1000
         self.cone_timer += dt * 1000
         self.player.update(dt)
         self._resolve_collisions()
@@ -158,7 +156,6 @@ class Level:
                 if distance_vec.magnitude() <= 50 * settings.scale_total_x:
                     target_candidates[i] = distance_vec.magnitude()
             if len(target_candidates) > 0:
-                key = min(target_candidates, key=target_candidates.get)
                 key = min(target_candidates, key=target_candidates.get)
                 self.player.interact_signal = False
                 return key
@@ -283,13 +280,7 @@ class Level:
         overlap_right  = player_rect.right - wall_rect.left
         overlap_top    = wall_rect.bottom - player_rect.top
         overlap_bottom = player_rect.bottom - wall_rect.top
-        overlap_left   = wall_rect.right  - player_rect.left
-        overlap_right  = player_rect.right - wall_rect.left
-        overlap_top    = wall_rect.bottom - player_rect.top
-        overlap_bottom = player_rect.bottom - wall_rect.top
 
-        min_x = overlap_left  if overlap_left  < overlap_right  else -overlap_right
-        min_y = overlap_top   if overlap_top   < overlap_bottom else -overlap_bottom
         min_x = overlap_left  if overlap_left  < overlap_right  else -overlap_right
         min_y = overlap_top   if overlap_top   < overlap_bottom else -overlap_bottom
 

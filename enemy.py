@@ -63,15 +63,9 @@ class Enemy(pygame.sprite.Sprite):
     # Patrol
     # ------------------------------------------------------------------
 
-
-    # ------------------------------------------------------------------
-    # Patrol
-    # ------------------------------------------------------------------
-
     def precalculate_patrol_path(self):
         self.patrol_path = []
         for i in range(len(self.waypoints) - 1):
-            path_between_pts = a_star(self.waypoints[i], self.waypoints[i + 1])
             path_between_pts = a_star(self.waypoints[i], self.waypoints[i + 1])
             if path_between_pts is None:
                 print(f"Warning: no path between waypoint {i} and {i+1} — skipping segment")
@@ -287,21 +281,17 @@ class Enemy(pygame.sprite.Sprite):
     # Vision
     # ------------------------------------------------------------------
 
-    # ------------------------------------------------------------------
-    # Vision
-    # ------------------------------------------------------------------
-
     def update_vision(self):
         old_pos = pygame.Vector2(self.position)
         old_angle = self.angle
         self._vision_dirty = (
             self.position.distance_to(old_pos) > 0.5 or
-            abs(self.angle - old_angle) > 0.2
+            abs(self.angle - old_angle) > 2.0
         )
 
     def build_vision_cone(self, walls):
         self.angles = self.get_vision_angles()
-        points = [self.rect.center]
+        points = [self.position.x, self.position.y]
         for angle in self.angles:
             points.append(self.cast_ray(angle, walls))
         return points
@@ -317,7 +307,7 @@ class Enemy(pygame.sprite.Sprite):
     def cast_ray(self, angle, collision_rects):
         rad = math.radians(angle)
         direction = pygame.Vector2(math.cos(rad), -math.sin(rad))
-        start = pygame.Vector2(self.rect.center)
+        start = pygame.Vector2(self.position)
         end = start + direction * self.view_distance
 
 
@@ -331,7 +321,6 @@ class Enemy(pygame.sprite.Sprite):
 
     def draw_vision_cone(self, surface, points):
         if len(points) < 2:
-            return
             return
         temp_surface = pygame.Surface((surface.get_width(), surface.get_height()), pygame.SRCALPHA)
         pygame.draw.polygon(temp_surface, (255, 255, 0, 64), points)

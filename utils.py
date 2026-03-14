@@ -111,8 +111,8 @@ def load_level(level_id: int) -> dict:
         doors_raw = read_json(f"levels/level_{level_id:02d}_doors.json")
         enemies_raw = read_json(f"levels/level_{level_id:02d}_enemies.json")
 
-        walls = [(e["x"], e["y"], e["width"], e["height"]) for e in walls_raw] if doors_raw else []
-        doors = [(e["x"], e["y"], e["orientation"]) for e in doors_raw] if walls_raw else []
+        walls = [(e["x"], e["y"], e["width"], e["height"]) for e in walls_raw] if walls_raw else []
+        doors = [(e["x"], e["y"], e["orientation"]) for e in doors_raw] if doors_raw else []
         enemies = [(e["position"], e["direction"], e["patrol_points"]) for e in enemies_raw] if enemies_raw else []
 
         return {
