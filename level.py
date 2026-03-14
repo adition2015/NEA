@@ -34,7 +34,15 @@ class Level:
         self.interactables = [door for door in self.doors] + [h for h in self.hiding_spots]
         self.door_rects = [door.rect for door in self.doors]
 
-        self.graph = WaypointGraph(settings.true_level_res, self.static_rects, 50 * settings.scale_diagonal, 10 * settings.scale_diagonal, self.door_rects)
+        # Replace the WaypointGraph line in __init__:
+        self.graph = WaypointGraph(
+            BASE_LEVEL_RES,
+            self.base_static_rects,
+            50,   # base-res cell size, no scale factor
+            10,   # base-res buffer
+            self.base_door_rects    
+        )
+
         connected = [wp for wp in self.graph.waypoints if wp.neighbours]
         print(f"Waypoints with neighbours: {len(connected)} / {len(self.graph.waypoints)}")
 
@@ -145,7 +153,11 @@ class Level:
                     pygame.draw.circle(self.surface, (0, 0, 255), (int(p.x), int(p.y)), 4)
 
     def _load_level(self, data: dict):
+        self.base_static_rects = []
+        self.base_door_rects   = []
+
         for (x, y, w, h) in data.get("walls", []):
+            self.base_static_rects.append(pygame.Rect(x, y, w, h))
             scaled_x = x * settings.scale_total_x
             scaled_y = y * settings.scale_total_y
             scaled_w = w * settings.scale_total_x
@@ -153,6 +165,9 @@ class Level:
             self.walls.append(Wall(scaled_x, scaled_y, scaled_w, scaled_h))
 
         for (x, y, o) in data.get("doors", []):
+            bw = 5 if o == 0 else 50
+            bh = 50 if o == 0 else 5
+            self.base_door_rects.append(pygame.Rect(x, y, bw, bh))
             scaled_x = x * settings.scale_total_x
             scaled_y = y * settings.scale_total_y
             self.doors.append(Door(scaled_x, scaled_y, o))
@@ -209,6 +224,22 @@ class Level:
                 inside = not inside
             j = i
         return inside
+    
+    def _to_base(self, pos: pygame.Vector2) -> pygame.Vector2:
+        """Convert a scaled screen position back to base-res space."""
+        return pygame.Vector2(
+            pos.x / settings.scale_total_x,
+            pos.y / settings.scale_total_y
+        )
+
+    def _scale_path(self, path: list) -> list:
+        """Scale an A* path (base-res Vector2 list) up to screen space."""
+        if not path:
+            return []
+        return [
+            pygame.Vector2(p.x * settings.scale_total_x, p.y * settings.scale_total_y)
+            for p in path
+        ]
 
     def update_vision_cones(self, dt):
         for enemy in self.enemies:
@@ -222,7 +253,7 @@ class Level:
                 # and hand it to the enemy to begin the search phase.
                 # need to add a half second for the enemy to regain sight of the player to stop player avoiding via moving behind enemy.
                 # to make enemy feel more responsive and intelligent, the enemy should know the player's position for 0.5 seconds after losing sight.
-                if enemy.LoS_timer <= 0 or self.graph.line_blocked(enemy.position, self.player.position):
+                if enemy.LoS_timer <= 0 or self.graph.line_blocked(self._to_base(enemy.position), self._to_base(self.player.position)):
                     # this ensures the enemy is not chasing the player through a wall for 0.5 seconds, but still can react to player.
                     search_path = self._compute_search_path(enemy)
                     enemy.transition_search(search_path)
@@ -247,11 +278,11 @@ class Level:
         """
         if enemy.last_seen is None:
             return []
-        start_wp = self.graph.nearest_waypoint(enemy.position)
-        end_wp   = self.graph.nearest_waypoint(enemy.last_seen)
+        start_wp = self.graph.nearest_waypoint(self._to_base(enemy.position))
+        end_wp   = self.graph.nearest_waypoint(self._to_base(enemy.last_seen))
         path = a_star(start_wp, end_wp)
-        return path if path else []
-
+        return self._scale_path(path) if path else []
+    
     def _compute_return_path(self, enemy) -> list:
         """
         A* from the enemy's current position to the nearest point on its patrol path.
@@ -259,20 +290,14 @@ class Level:
         """
         if not enemy.patrol_path:
             return []
-        # Find the nearest point in patrol_path
-        min_dist = float('inf')
-        nearest_pt = None
-        for pt in enemy.patrol_path:
-            dist = enemy.position.distance_to(pt)
-            if dist < min_dist:
-                min_dist = dist
-                nearest_pt = pt
+        # patrol_path is already in screen space, so distance comparisons are fine
+        nearest_pt = min(enemy.patrol_path, key=lambda pt: enemy.position.distance_to(pt), default=None)
         if nearest_pt is None:
             return []
-        start_wp = self.graph.nearest_waypoint(enemy.position)
-        end_wp = self.graph.nearest_waypoint(nearest_pt)
+        start_wp = self.graph.nearest_waypoint(self._to_base(enemy.position))
+        end_wp   = self.graph.nearest_waypoint(self._to_base(nearest_pt))
         path = a_star(start_wp, end_wp)
-        return path if path else []
+        return self._scale_path(path) if path else []
 
     def handle_interaction(self):
         interactable = self.check_interaction()
@@ -310,10 +335,12 @@ class Level:
     def precalculate_patrol_path(self):
         for enemy in self.enemies:
             enemy.waypoints = []
-            for i in enemy.patrol_points:
-                enemy.waypoints.append(self.graph.nearest_waypoint(i))
+            for pt in enemy.patrol_points:          # base-res, no conversion needed
+                enemy.waypoints.append(self.graph.nearest_waypoint(pt))
             enemy.precalculate_patrol_path()
-            enemy.set_direction(enemy.patrol_path[enemy.patrol_ID])
+            enemy.patrol_path = self._scale_path(enemy.patrol_path)   # ← scale once here
+            if enemy.patrol_path:
+                enemy.set_direction(enemy.patrol_path[enemy.patrol_ID])
 
     def draw_vision_cones(self):
         self.cone_surface.fill((0, 0, 0))

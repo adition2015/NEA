@@ -13,7 +13,6 @@ class Enemy(pygame.sprite.Sprite):
             self.direction = self.direction.normalize()
         self.speed = 25 * settings.scale_total_x
         self.patrol_points = patrol_points
-        self.scale_patrol_points()
         self.waypoints = []
         self.current_waypoint_index = 0
 

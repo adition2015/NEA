@@ -12,7 +12,7 @@ class Settings:
     def __init__(self):
         self.width, self.height = DEF_WIDTH, DEF_HEIGHT
         self.res = (self.width, self.height)
-        self.is_fullscreen = True 
+        self.is_fullscreen = False
         self.levelScalar = 0.9
         self.FPS = 120
         self.flags = 0 # integer needed as error pops up with none.
