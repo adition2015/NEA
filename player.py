@@ -51,9 +51,9 @@ class Player(pygame.sprite.Sprite):
 
     def handle_input(self, event):
         self.handle_movement_mode(event)  
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_w:
             self.move_condition = True
-        if event.type == pygame.KEYUP and event.key == pygame.K_r:
+        if event.type == pygame.KEYUP and event.key == pygame.K_w:
             self.move_condition = False
         if event.type == pygame.KEYDOWN and event.key == pygame.K_e:
             # check for interaction - handled by level:

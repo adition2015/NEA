@@ -77,6 +77,15 @@ class Level:
         for i in self.doors:
             i.draw(self.surface)
 
+        # draw debug waypoints
+        for wp in self.graph.waypoints:
+            wp.draw(self.surface)
+        # Draw enemy paths for debugging
+        self.draw_enemy_paths()
+        # debug collision rects:
+        #for rect in self.collision_rects:
+        #   pygame.draw.rect(self.surface, (0, 255, 0), rect, 2)
+
         self.player.draw(self.surface)
 
         for i in self.enemies:
@@ -90,18 +99,6 @@ class Level:
             i.draw(self.surface)
 
         
-
-        
-
-        # draw debug waypoints
-        for wp in self.graph.waypoints:
-            wp.draw(self.surface)
-        # Draw enemy paths for debugging
-        self.draw_enemy_paths()
-        
-        # debug collision rects:
-        #for rect in self.collision_rects:
-        #   pygame.draw.rect(self.surface, (0, 255, 0), rect, 2)
 
         # draw overlays
         self.draw_icons()

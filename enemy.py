@@ -106,9 +106,11 @@ class Enemy(pygame.sprite.Sprite):
         """Called by Level every frame the enemy has LoS. player_obs is always valid here."""
         self.state = "chase"
         self.vision_cone_colour = (64, 0, 0)
+        self.target_angle = None
         self.player_obs = player_obs
         # ONLY update last_seen when we have a real sighting — never overwrite with None
         self.last_seen = pygame.Vector2(player_obs)
+
 
     def chase(self):
         """Direct pursuit. Level guarantees player_obs is set while state == 'chase'."""
@@ -137,6 +139,7 @@ class Enemy(pygame.sprite.Sprite):
             return  # don't restart an in-progress search
         self.state = "search"
         self.vision_cone_colour = (64, 32, 0)
+        self.target_angle = None
         self.player_obs = None
         self.search_path = search_path or []
         self.search_id = 0
@@ -174,18 +177,20 @@ class Enemy(pygame.sprite.Sprite):
     def transition_scout(self):
         if self.state != "scout":
             self.state = "scout"
-            current_angle = self.angle
-            self.scout_angles = [self.angle + 180, current_angle]
+            self.scout_angles = [self.angle + 180, self.angle + 360]
+            self.scout_id = 0
             self.search_path = []
             self.search_id = 0
     
     def scout(self):
-        self.scout_id = 0
-        self.target_angle = self.scout_angles[self.scout_id]
-        if self.scout_id >= len(self.scout_angles):
-            # scout unsuccessful, return to patrol
+        if self.scout_id >= len(self.scout_angles) or self.state != "scout":
+            self.target_angle = None   # ← clear so rotate() uses direction again
             self.transition_patrol()
-        if self.angle == self.target_angle:
+            return
+
+        self.target_angle = self.scout_angles[self.scout_id]
+
+        if abs(self.angle - self.target_angle) < 1.0:   # ← threshold, not ==
             self.scout_id += 1
 
     # ------------------------------------------------------------------
@@ -215,6 +220,7 @@ class Enemy(pygame.sprite.Sprite):
         """Called when returning to patrol ends."""
         self.state = "patrol"
         self.vision_cone_colour = (64, 64, 0)
+        self.target_angle = None
         self.player_obs = None
         self.last_seen = None
         self.return_path = []
@@ -255,11 +261,10 @@ class Enemy(pygame.sprite.Sprite):
             self.set_direction(self.patrol_path[self.patrol_ID])
 
     def rotate(self, dt, desired_angle = None):
-        if not desired_angle:
+        if desired_angle is None:                        # ← was `if not desired_angle`
             desired_angle = math.degrees(math.atan2(-self.direction.y, self.direction.x))
-            angle_diff = (desired_angle - self.angle + 180) % 360 - 180
-        else:
-            angle_diff = desired_angle - self.angle
+    
+        angle_diff = (desired_angle - self.angle + 180) % 360 - 180
 
         if abs(angle_diff) < 0.01:
             self.angle = desired_angle
@@ -275,10 +280,8 @@ class Enemy(pygame.sprite.Sprite):
     def move(self, dt, desired_angle = None):
         self.position += dt * self.speed * self.direction
         self.rect.center = (int(self.position.x), int(self.position.y))
-        if self.direction.length() > 0:
+        if desired_angle is not None or self.direction.length() > 0:  # ← allow rotate when stopped
             self.rotate(dt, desired_angle)
-        else:
-            self.angle = 0
 
     # ------------------------------------------------------------------
     # Vision
