@@ -71,6 +71,13 @@ class Level:
             enemy.update(dt)
         for dead_enemy in self.dead_enemies:
             dead_enemy.update(dt)
+            if dead_enemy.carried:
+                dead_enemy.player_pos = self.player.position
+                dead_enemy.player_speed = self.player.speed
+            else:
+                dead_enemy.player_pos = 0
+                dead_enemy.player_speed = 0
+                
 
     def draw(self, screen, fps):
         self.surface.fill((20, 20, 20))
@@ -153,7 +160,7 @@ class Level:
             target_candidates = {}
             for i in self.interactables:
                 distance_vec = self.player.position - pygame.Vector2(i.rect.center)
-                if distance_vec.magnitude() <= 50:   # base units
+                if distance_vec.magnitude() <= 50 or i != self.player.body:   # base units
                     if isinstance(i, Door):
                         target_candidates[i] = distance_vec.magnitude()
                     elif not self.graph.line_blocked(self.player.position,
@@ -187,12 +194,9 @@ class Level:
                 # carry, drop, hide sequences
                 self.player.carrying_body = not self.player.carrying_body
                 interactable.carried = not interactable.carried
-                if interactable.carried:
-                    interactable.player_pos = self.player.rect.midleft
-                    interactable.player_speed = self.player.speed
-                else:
-                    interactable.player_pos = None
-                    interactable.player_speed = 0
+                self.player.body = interactable
+
+                
 
 
     def handle_input(self, event):
@@ -425,3 +429,9 @@ class HidingSpot:
 
     def interact(self):
         self.in_use = not self.in_use
+
+        
+
+
+
+    

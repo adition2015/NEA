@@ -29,6 +29,7 @@ class Player(pygame.sprite.Sprite):
         self.last_pos = None
         self.hidden = False
         self.carrying_body = False
+        self._body = None # stores interactable object
 
         # --- visual ---
         self._colour = (60, 120, 220)
@@ -50,6 +51,11 @@ class Player(pygame.sprite.Sprite):
         size = max(1, int(20 * settings.scale_total_x))
         surface = pygame.Surface((size, size), pygame.SRCALPHA)
         pygame.draw.circle(surface, self.colour, (size // 2, size // 2), size // 2)
+        if self.body != None:
+            body_image = self.body.base_image
+            body_image = pygame.transform.scale(body_image, (size//2, size//2))
+            body_image.set_alpha(255)
+            surface.blit(body_image, (0, 0))
         return surface
 
     def _rotate_to_mouse(self):
@@ -71,12 +77,12 @@ class Player(pygame.sprite.Sprite):
             self.move_condition = False
         if event.type == pygame.KEYDOWN and event.key == pygame.K_e:
             self.interact_signal = True
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_q:
+            self.drop_body()
         if event.type == pygame.MOUSEBUTTONDOWN:
             if pygame.mouse.get_pressed()[0]:
                 self.attack()
         
-
-
 
     def handle_movement_mode(self, event: pygame.event.Event):
         if event.type == pygame.KEYDOWN:
@@ -109,7 +115,15 @@ class Player(pygame.sprite.Sprite):
     def attack(self):
         # produces attack signal
         self.attack_signal = True
-        # level reads this in handle_player_attacks and verifies whether attack is successful
+        # level reads this in handle_player_attacks and verifies whether attack is successful        
+    
+    def drop_body(self):
+        self.body.base_image.set_alpha(255)
+        self.body.icon_surface.set_alpha(255)
+        self.body.carried = False
+        self.body = None
+        self.carrying_body = False
+        
 
     def resolve_collision(self, offset: pygame.Vector2):
         self.position += offset
@@ -125,6 +139,15 @@ class Player(pygame.sprite.Sprite):
         if hasattr(self, 'base_image'):  # guard for __init__ order
             self.base_image = self._build_image()
 
+    @property
+    def body(self):
+        return self._body
+
+    @body.setter
+    def body(self, value):
+        self._body = value
+        if hasattr(self, 'base_image'):
+            self.base_image = self._build_image()
     def draw(self, surface: pygame.Surface):
         rotated = pygame.transform.rotate(self.base_image, -self.angle)
         # Only here do we scale: convert base position → level-surface pixels.

@@ -28,8 +28,8 @@ class Enemy(pygame.sprite.Sprite):
         # --- visual ---
         self._colour = (240, 10, 20)
         self._icon = None
-        self.icon_alpha = 255
         self.base_image = self._build_image()
+        self.base_image_alpha = 255
         # rect tracks BASE coords for collision / LoS polygon test
         self.rect = self.base_image.get_rect(center=(int(self.position.x),
                                                       int(self.position.y)))
@@ -90,15 +90,15 @@ class Enemy(pygame.sprite.Sprite):
 
     def death(self):
         # becomes an interactable
+        self.speed = self.player_speed
         if self.carried:
+            self.base_image_alpha = 0
+            self.base_image.set_alpha(self.base_image_alpha)
             self.set_direction(self.player_pos)
-            self.speed = self.player_speed
         else:
-            self.speed = 0
-
- 
-
-
+            self.base_image_alpha = 255
+            self.base_image.set_alpha(self.base_image_alpha)
+        
 
     # ------------------------------------------------------------------
     # Patrol
