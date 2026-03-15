@@ -1,6 +1,7 @@
 import pygame
 from settings import settings
 
+# All speeds are in base units per second (base res = 1080×720).
 SPEED = {1: 75, 2: 125, 3: 175}
 
 MOVEMENT_TRANSITIONS = {
@@ -13,58 +14,57 @@ MOVEMENT_TRANSITIONS = {
 class Player(pygame.sprite.Sprite):
     def __init__(self, position: pygame.Vector2, direction: pygame.Vector2):
         super().__init__()
-        self.position  = pygame.Vector2(position)
+        self.position  = pygame.Vector2(position)   # BASE coords
         self.direction = pygame.Vector2(direction)
         self.movement_mode = 2
         self.speed_mult = 1
 
-        # --- hiding stuff ---
+        # --- hiding ---
         self.last_pos = None
         self.hidden = False
-        self.colour = (60, 120, 220) if not self.hidden else (0, 76, 76)
+        self.colour = (60, 120, 220)
 
-        # --- Visual setup ---
+        # --- visual ---
         self.base_image = self._build_image()
-        self.rect = self.base_image.get_rect(center=(int(self.position.x), int(self.position.y)))
+        # rect tracks BASE coords for collision detection
+        self.rect = self.base_image.get_rect(center=(int(self.position.x),
+                                                      int(self.position.y)))
         self.angle = 0
         self.movement_icon_alpha = 255
-        
-        # --- condiitons - accessed by level object --- 
-        self.move_condition = False
 
-        # --- signals where conditional logic is performed by level object --- 
+        # --- flags / signals ---
+        self.move_condition  = False
         self.interact_signal = False
 
     def _build_image(self) -> pygame.Surface:
+        # Image is built at screen pixel size so it looks correct on the
+        # level surface — this is the ONE place scale touches player setup.
         size = max(1, int(16 * settings.scale_total_x))
         surface = pygame.Surface((size, size), pygame.SRCALPHA)
-        radius = size / 2
-        pygame.draw.circle(surface, self.colour, (size // 2, size // 2), radius)
+        pygame.draw.circle(surface, self.colour, (size // 2, size // 2), size // 2)
         return surface
 
     def _rotate_to_mouse(self):
-        mouse_pos = pygame.Vector2(pygame.mouse.get_pos()) - settings.level_offset
-        diff = mouse_pos - self.position
+        # mouse → screen → level surface → base coords
+        mouse_screen = pygame.Vector2(pygame.mouse.get_pos())
+        mouse_level  = mouse_screen - pygame.Vector2(settings.level_offset)
+        mouse_base   = settings.from_screen(mouse_level)
 
+        diff = mouse_base - self.position
         if diff.length() > 0:
             self.direction = diff.normalize()
-            # angle_to measures from self -> target, negate because pygame Y-axis is flipped
             self.angle = pygame.Vector2(1, 0).angle_to(self.direction)
 
     def handle_input(self, event):
-        self.handle_movement_mode(event)  
+        self.handle_movement_mode(event)
         if event.type == pygame.KEYDOWN and event.key == pygame.K_w:
             self.move_condition = True
         if event.type == pygame.KEYUP and event.key == pygame.K_w:
             self.move_condition = False
         if event.type == pygame.KEYDOWN and event.key == pygame.K_e:
-            # check for interaction - handled by level:
-            # send an interaction signal to the Level object, which checks if a interactable is within the player's reachable radius - e.g. 50 pixels from player.center
             self.interact_signal = True
-            # level tries interaction, if condition not met, resets interact signal to False     
 
     def handle_movement_mode(self, event: pygame.event.Event):
-        """Call this from your event loop, passing each KEYDOWN event."""
         if event.type == pygame.KEYDOWN:
             if event.key in (pygame.K_LSHIFT, pygame.K_LCTRL):
                 transitions = MOVEMENT_TRANSITIONS[self.movement_mode]
@@ -72,33 +72,34 @@ class Player(pygame.sprite.Sprite):
 
     def move(self, dt: float):
         if self.move_condition:
-            self.position += self.direction * SPEED[self.movement_mode] * dt * settings.scale_diagonal * self.speed_mult
+            # All arithmetic in base coords — no scale needed here.
+            self.position += self.direction * SPEED[self.movement_mode] * dt * self.speed_mult
             self.rect.center = (int(self.position.x), int(self.position.y))
 
     def hide(self, interactable):
         if not self.hidden:
-            self.last_pos = self.position
+            self.last_pos   = pygame.Vector2(self.position)
             self.speed_mult = 0
-            self.position = pygame.Vector2(interactable.rect.center)
-            self.hidden = not self.hidden
+            # interactable.rect is in base coords, so this is safe
+            self.position   = pygame.Vector2(interactable.rect.center)
+            self.hidden     = True
         else:
             self.speed_mult = 1
-            self.position = self.last_pos
-            self.last_pos = None
-            self.hidden = not self.hidden
+            self.position   = self.last_pos
+            self.last_pos   = None
+            self.hidden     = False
 
     def resolve_collision(self, offset: pygame.Vector2):
         self.position += offset
         self.rect.center = (int(self.position.x), int(self.position.y))
 
-
     def draw(self, surface: pygame.Surface):
-        """Rotate fresh from base_image every draw call — no cumulative degradation."""
         rotated = pygame.transform.rotate(self.base_image, -self.angle)
-        rect = rotated.get_rect(center=(int(self.position.x), int(self.position.y)))
+        # Only here do we scale: convert base position → level-surface pixels.
+        screen_pos = settings.to_screen(self.position)
+        rect = rotated.get_rect(center=(int(screen_pos.x), int(screen_pos.y)))
         surface.blit(rotated, rect)
 
     def update(self, dt: float):
         self._rotate_to_mouse()
         self.move(dt)
-
