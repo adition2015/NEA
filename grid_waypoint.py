@@ -20,7 +20,8 @@ class WaypointGraph:
 
 
         # enemy variables:
-        self.sdv = pygame.Vector2(20, 20) # enemy size displacement  at base_level
+        # enemy size displacement  at base_level
+        self.sdv= pygame.Vector2()
         
         # initialisation
         self.waypoints = self._gen_waypoints(level_res)

@@ -87,12 +87,22 @@ class Level:
 
         # draw debug waypoints
         for wp in self.graph.waypoints:
-            wp.draw(self.surface)
+            scaled_pos = wp.pos * settings.scale_diagonal
+            scaled_wp = Waypoint(scaled_pos)
+            scaled_wp.draw(self.surface)
+
+            
+
         # Draw enemy paths for debugging
         self.draw_enemy_paths()
         # debug collision rects:
         #for rect in self.collision_rects:
         #   pygame.draw.rect(self.surface, (0, 255, 0), rect, 2)
+
+        for i in self.walls:
+            i.draw(self.surface)
+        for i in self.hiding_spots:
+            i.draw(self.surface)
 
         self.player.draw(self.surface)
 
@@ -102,11 +112,6 @@ class Level:
             self.draw_vision_cones()
             self.cone_timer = 0
         self.surface.blit(self.cone_surface, (0, 0), special_flags=pygame.BLEND_ADD)
-
-        for i in self.walls:
-            i.draw(self.surface)
-
-        
 
         # draw overlays
         self.draw_icons()
@@ -168,14 +173,10 @@ class Level:
             bw = 5 if o == 0 else 50
             bh = 50 if o == 0 else 5
             self.base_door_rects.append(pygame.Rect(x, y, bw, bh))
-            scaled_x = x * settings.scale_total_x
-            scaled_y = y * settings.scale_total_y
-            self.doors.append(Door(scaled_x, scaled_y, o))
+            self.doors.append(Door(x, y, o))
 
         for (x, y) in data.get("hiding_spots", []):
-            scaled_x = x * settings.scale_total_x
-            scaled_y = y * settings.scale_total_y
-            self.hiding_spots.append(HidingSpot(scaled_x, scaled_y))
+            self.hiding_spots.append(HidingSpot(x, y))
 
         for (position, direction, patrol_points) in data.get("enemies", []):
             scaled_position = (position[0] * settings.scale_total_x, position[1] * settings.scale_total_y)
@@ -189,12 +190,16 @@ class Level:
             for i in self.interactables:
                 distance_vec = self.player.position - i.rect.center
                 if distance_vec.magnitude() <= 50 * settings.scale_total_x:
-                    target_candidates[i] = distance_vec.magnitude()
+                    if type(i) == Door:
+                        target_candidates[i] = distance_vec.magnitude()
+                    elif not self.graph.line_blocked(self.player.base_position, i.base_rect.center):
+                        target_candidates[i] = distance_vec.magnitude()
             if len(target_candidates) > 0:
                 key = min(target_candidates, key=target_candidates.get)
                 self.player.interact_signal = False
                 return key
-
+        self.player.interact_signal = False
+        return False
 
     def check_enemy_interactions(self):
         for enemy in self.enemies:
@@ -206,9 +211,10 @@ class Level:
                     door.interact(self.collision_rects)
 
     def check_player_LoS(self, enemy):
-        if len(enemy.vision_points) < 3:
-            return False
-        return self._point_in_polygon(self.player.position, enemy.vision_points)
+        if not self.player.hidden:
+            if len(enemy.vision_points) < 3:
+                return False
+            return self._point_in_polygon(self.player.position, enemy.vision_points)
 
 
     def _point_in_polygon(self, point: pygame.Vector2, polygon: list) -> bool:
@@ -302,7 +308,11 @@ class Level:
     def handle_interaction(self):
         interactable = self.check_interaction()
         if interactable:
-            interactable.interact(self.collision_rects)
+            if type(interactable) == Door:
+                interactable.interact(self.collision_rects)
+            elif type(interactable) == HidingSpot:
+                self.player.hide(interactable)
+                interactable.interact()
 
     def handle_input(self, event):
         self.player.handle_input(event)
@@ -385,10 +395,13 @@ class Wall:
 class Door:
     def __init__(self, x, y, o: int):
         self.is_open = True
-        self.width = 5 if o == 0 else 50
-        self.height = 50 if o == 0 else 5
-        self.width *= settings.scale_total_x
-        self.height *= settings.scale_total_y
+        self.base_width = 5 if o == 0 else 50
+        self.base_height = 50 if o == 0 else 5
+        self.base_x, self.base_y = x, y
+        x *= settings.scale_total_x
+        y *= settings.scale_total_y
+        self.width = self.base_width * settings.scale_total_x
+        self.height = self.base_height * settings.scale_total_y
         self.rect = pygame.rect.Rect(x, y, self.width, self.height)
 
     def open(self, collision_rects):
@@ -419,13 +432,22 @@ class Door:
 
 class HidingSpot:
     def __init__(self, x, y):
-        self.width, self.height = 32 * settings.scale_total_x, 32 * settings.scale_total_y
+        self.base_width, self.base_height = 32, 32
+        self.base_x, self.base_y = x, y
+        x *= settings.scale_total_x
+        y *= settings.scale_total_y
+        self.width, self.height = self.base_width * settings.scale_total_x, self.base_height * settings.scale_total_y
         self.rect = pygame.rect.Rect(x, y, self.width, self.height)
+        self.base_rect = pygame.rect.Rect(self.base_x, self.base_y, self.base_width, self.base_height)
         self.in_use = False
     
     def draw(self, surface):
-        colour = (0, 128, 128) if not self.in_use else (102, 178, 178)
+        colour = (0, 128, 128) if self.in_use else (102, 178, 178)
         pygame.draw.rect(surface, colour, self.rect)
+    
+    def interact(self):
+        self.in_use = not self.in_use
+
 
     
 

@@ -16,13 +16,19 @@ class Player(pygame.sprite.Sprite):
         self.position  = pygame.Vector2(position)
         self.direction = pygame.Vector2(direction)
         self.movement_mode = 2
+        self.speed_mult = 1
+
+        # --- hiding stuff ---
+        self.last_pos = None
+        self.hidden = False
+        self.colour = (60, 120, 220) if not self.hidden else (0, 76, 76)
 
         # --- Visual setup ---
         self.base_image = self._build_image()
         self.rect = self.base_image.get_rect(center=(int(self.position.x), int(self.position.y)))
         self.angle = 0
         self.movement_icon_alpha = 255
-
+        
         # --- condiitons - accessed by level object --- 
         self.move_condition = False
 
@@ -33,7 +39,7 @@ class Player(pygame.sprite.Sprite):
         size = max(1, int(16 * settings.scale_total_x))
         surface = pygame.Surface((size, size), pygame.SRCALPHA)
         radius = size / 2
-        pygame.draw.circle(surface, (60, 120, 220), (size // 2, size // 2), radius)
+        pygame.draw.circle(surface, self.colour, (size // 2, size // 2), radius)
         return surface
 
     def _rotate_to_mouse(self):
@@ -66,10 +72,21 @@ class Player(pygame.sprite.Sprite):
 
     def move(self, dt: float):
         if self.move_condition:
-            self.position += self.direction * SPEED[self.movement_mode] * dt * settings.scale_diagonal
+            self.position += self.direction * SPEED[self.movement_mode] * dt * settings.scale_diagonal * self.speed_mult
             self.rect.center = (int(self.position.x), int(self.position.y))
 
-    
+    def hide(self, interactable):
+        if not self.hidden:
+            self.last_pos = self.position
+            self.speed_mult = 0
+            self.position = pygame.Vector2(interactable.rect.center)
+            self.hidden = not self.hidden
+        else:
+            self.speed_mult = 1
+            self.position = self.last_pos
+            self.last_pos = None
+            self.hidden = not self.hidden
+
     def resolve_collision(self, offset: pygame.Vector2):
         self.position += offset
         self.rect.center = (int(self.position.x), int(self.position.y))

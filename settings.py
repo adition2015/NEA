@@ -41,7 +41,7 @@ class Settings:
 
     def init_resolution(self):
         if self.is_fullscreen:
-            self.flags = 0
+            self.flags = pygame.FULLSCREEN
             self.res = pygame.display.get_desktop_sizes()[0]
             print(self.res)
         self.calc_level_res()
