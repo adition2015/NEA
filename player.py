@@ -18,13 +18,20 @@ class Player(pygame.sprite.Sprite):
         self.direction = pygame.Vector2(direction)
         self.movement_mode = 2
         self.speed_mult = 1
+        self.speed = 0
+
+        # --- combat ---
+        self.health = 100
+        self.attack_range = 25 # BASE coords
+        self.attack_cooldown = 0.5 # seconds
 
         # --- hiding ---
         self.last_pos = None
         self.hidden = False
-        self.colour = (60, 120, 220)
+        self.carrying_body = False
 
         # --- visual ---
+        self._colour = (60, 120, 220)
         self.base_image = self._build_image()
         # rect tracks BASE coords for collision detection
         self.rect = self.base_image.get_rect(center=(int(self.position.x),
@@ -35,11 +42,12 @@ class Player(pygame.sprite.Sprite):
         # --- flags / signals ---
         self.move_condition  = False
         self.interact_signal = False
+        self.attack_signal = False
 
     def _build_image(self) -> pygame.Surface:
         # Image is built at screen pixel size so it looks correct on the
         # level surface — this is the ONE place scale touches player setup.
-        size = max(1, int(16 * settings.scale_total_x))
+        size = max(1, int(20 * settings.scale_total_x))
         surface = pygame.Surface((size, size), pygame.SRCALPHA)
         pygame.draw.circle(surface, self.colour, (size // 2, size // 2), size // 2)
         return surface
@@ -63,6 +71,12 @@ class Player(pygame.sprite.Sprite):
             self.move_condition = False
         if event.type == pygame.KEYDOWN and event.key == pygame.K_e:
             self.interact_signal = True
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if pygame.mouse.get_pressed()[0]:
+                self.attack()
+        
+
+
 
     def handle_movement_mode(self, event: pygame.event.Event):
         if event.type == pygame.KEYDOWN:
@@ -73,7 +87,8 @@ class Player(pygame.sprite.Sprite):
     def move(self, dt: float):
         if self.move_condition:
             # All arithmetic in base coords — no scale needed here.
-            self.position += self.direction * SPEED[self.movement_mode] * dt * self.speed_mult
+            self.speed = SPEED[self.movement_mode]
+            self.position += self.direction * self.speed * dt * self.speed_mult
             self.rect.center = (int(self.position.x), int(self.position.y))
 
     def hide(self, interactable):
@@ -81,17 +96,34 @@ class Player(pygame.sprite.Sprite):
             self.last_pos   = pygame.Vector2(self.position)
             self.speed_mult = 0
             # interactable.rect is in base coords, so this is safe
+            self.colour = (255, 255, 255)
             self.position   = pygame.Vector2(interactable.rect.center)
             self.hidden     = True
         else:
             self.speed_mult = 1
+            self.colour = (60, 120, 220)
             self.position   = self.last_pos
             self.last_pos   = None
             self.hidden     = False
 
+    def attack(self):
+        # produces attack signal
+        self.attack_signal = True
+        # level reads this in handle_player_attacks and verifies whether attack is successful
+
     def resolve_collision(self, offset: pygame.Vector2):
         self.position += offset
         self.rect.center = (int(self.position.x), int(self.position.y))
+
+    @property   
+    def colour(self):
+        return self._colour
+
+    @colour.setter
+    def colour(self, value):
+        self._colour = value
+        if hasattr(self, 'base_image'):  # guard for __init__ order
+            self.base_image = self._build_image()
 
     def draw(self, surface: pygame.Surface):
         rotated = pygame.transform.rotate(self.base_image, -self.angle)

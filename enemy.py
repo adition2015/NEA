@@ -1,7 +1,8 @@
-import pygame, math
+import pygame, math, os
 from grid_waypoint import *
 from pathfinding import *
 from settings import settings
+
 
 # All speeds are in base units per second (base res = 1080×720).
 PATROL_SPEED        = 50
@@ -25,6 +26,9 @@ class Enemy(pygame.sprite.Sprite):
         self.current_waypoint_index = 0
 
         # --- visual ---
+        self._colour = (240, 10, 20)
+        self._icon = None
+        self.icon_alpha = 255
         self.base_image = self._build_image()
         # rect tracks BASE coords for collision / LoS polygon test
         self.rect = self.base_image.get_rect(center=(int(self.position.x),
@@ -38,6 +42,7 @@ class Enemy(pygame.sprite.Sprite):
         self.LoS_timer  = 0.5
         self.target_angle = None
 
+
         # vision — all distances in base units
         self.FOV           = 100
         self.cone_res      = 0.5
@@ -46,6 +51,7 @@ class Enemy(pygame.sprite.Sprite):
         self.turn_speed = 360           # degrees / second
 
         self.state     = "patrol"
+        self.carried = False
         self.patrol_ID = 0
 
         self.search_path = []
@@ -53,16 +59,46 @@ class Enemy(pygame.sprite.Sprite):
         self.return_path = []
         self.return_id   = 0
 
+
+
     # ------------------------------------------------------------------
     # Visual
     # ------------------------------------------------------------------
 
     def _build_image(self) -> pygame.Surface:
         # Image pixel size is a rendering concern — scale is fine here.
-        size = max(1, int(16 * settings.scale_total_x))
+        size = max(1, int(20 * settings.scale_total_x))
         surface = pygame.Surface((size, size), pygame.SRCALPHA)
-        pygame.draw.circle(surface, (240, 10, 20), (size // 2, size // 2), size // 2)
+        pygame.draw.circle(surface, self.colour, (size / 2, size / 2), size / 2)
+        if self.icon != None:
+            self.icon_surface = pygame.image.load(f"assets/icons/{self.icon}.png")
+            self.icon_surface = pygame.transform.scale(self.icon_surface, (size, size))
         return surface
+    
+    # ------------------------------------------------------------------
+    # Death
+    # ------------------------------------------------------------------
+    def transition_death(self):
+        self.state = "dead"  # enters dead state
+        self.colour = (97, 64, 65)
+        self.icon = "cross"
+        self.patrol_path = []
+        self.return_path = []
+        self.search_path = []
+        self.player_pos = None
+        self.player_speed = 0
+
+    def death(self):
+        # becomes an interactable
+        if self.carried:
+            self.set_direction(self.player_pos)
+            self.speed = self.player_speed
+        else:
+            self.speed = 0
+
+ 
+
+
 
     # ------------------------------------------------------------------
     # Patrol
@@ -104,6 +140,7 @@ class Enemy(pygame.sprite.Sprite):
         self.target_angle = None
         self.player_obs   = player_obs
         self.last_seen    = pygame.Vector2(player_obs)
+        self.icon = "exclamation"
 
     def chase(self):
         dist_to_player = self.position.distance_to(self.player_obs)
@@ -123,6 +160,7 @@ class Enemy(pygame.sprite.Sprite):
         if self.state == "search":
             return
         self.state = "search"
+        self.icon = "question"
         self.vision_cone_colour = (64, 32, 0)
         self.target_angle = None
         self.player_obs   = None
@@ -175,6 +213,7 @@ class Enemy(pygame.sprite.Sprite):
     def transition_returning_to_patrol(self):
         if self.state != "returning_to_patrol":
             self.state = "returning_to_patrol"
+            self.icon = None
             self.vision_cone_colour = (64, 64, 0)
             self.target_angle = None
             self.player_obs   = None
@@ -199,6 +238,7 @@ class Enemy(pygame.sprite.Sprite):
     def transition_patrol(self):
         self.state = "patrol"
         self.vision_cone_colour = (64, 64, 0)
+        self.icon = None
         self.target_angle = None
         self.player_obs   = None
         self.last_seen    = None
@@ -311,12 +351,36 @@ class Enemy(pygame.sprite.Sprite):
     # Draw / Update
     # ------------------------------------------------------------------
 
+    @property   
+    def colour(self):
+        return self._colour
+
+    @colour.setter
+    def colour(self, value):
+        self._colour = value
+        if hasattr(self, 'base_image'):  # guard for __init__ order
+            self.base_image = self._build_image()
+
+    @property   
+    def icon(self):
+        return self._icon
+
+    @icon.setter
+    def icon(self, value):
+        self._icon = value
+        if hasattr(self, 'base_image'):  # guard for __init__ order
+            self.base_image = self._build_image()
+
     def draw(self, surface: pygame.Surface):
         rotated = pygame.transform.rotate(self.base_image, self.angle)
         # Only here: convert base position → level-surface pixels.
         screen_pos = settings.to_screen(self.position)
+        icon_screen_pos = settings.to_screen(self.position)
         rect = rotated.get_rect(center=(int(screen_pos.x), int(screen_pos.y)))
         surface.blit(rotated, rect)
+        if self.icon != None:
+            icon_rect = self.icon_surface.get_rect(center=(int(icon_screen_pos.x), int(icon_screen_pos.y)))
+            surface.blit(self.icon_surface, icon_rect)
 
     def update(self, dt: float):
         if self.state == "patrol":
@@ -334,6 +398,8 @@ class Enemy(pygame.sprite.Sprite):
         elif self.state == "scout":
             self.speed = 0
             self.scout()
-
+        elif self.state == "dead":
+            self.death()
+            
         self.move(dt, self.target_angle)
         self.update_vision()

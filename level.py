@@ -16,6 +16,7 @@ class Level:
         self.doors        = []
         self.hiding_spots = []
         self.enemies      = []
+        self.dead_enemies = []
         self._load_level(data)
 
         # All rects are now in BASE coords.
@@ -64,9 +65,12 @@ class Level:
         self._resolve_collisions()
         self.handle_interaction()
         self.check_enemy_interactions()
+        self.handle_attack()
         self.update_vision_cones(dt)
         for enemy in self.enemies:
             enemy.update(dt)
+        for dead_enemy in self.dead_enemies:
+            dead_enemy.update(dt)
 
     def draw(self, screen, fps):
         self.surface.fill((20, 20, 20))
@@ -86,11 +90,14 @@ class Level:
             wall.draw(self.surface)
         for spot in self.hiding_spots:
             spot.draw(self.surface)
+        for dead_enemy in self.dead_enemies: # static object: drawn below players and enemies
+            dead_enemy.draw(self.surface)
 
         self.player.draw(self.surface)
 
         for enemy in self.enemies:
             enemy.draw(self.surface)
+
 
         if self.cone_timer >= self.cone_update_interval:
             self.draw_vision_cones()
@@ -176,9 +183,32 @@ class Level:
             elif isinstance(interactable, HidingSpot):
                 self.player.hide(interactable)
                 interactable.interact()
+            elif isinstance(interactable, Enemy):
+                # carry, drop, hide sequences
+                self.player.carrying_body = not self.player.carrying_body
+                interactable.carried = not interactable.carried
+                if interactable.carried:
+                    interactable.player_pos = self.player.rect.midleft
+                    interactable.player_speed = self.player.speed
+                else:
+                    interactable.player_pos = None
+                    interactable.player_speed = 0
+
 
     def handle_input(self, event):
         self.player.handle_input(event)
+
+    def handle_attack(self):
+        # Handles Player Attack
+        if self.player.attack_signal:
+            for enemy in self.enemies:
+                if self.player.position.distance_squared_to(enemy.position) < self.player.attack_range**2: # removes expensive sqrt
+                    if not self.check_player_LoS(enemy): # prevents successful attack when enemy has LoS, may remove when enemy attacks created.
+                        enemy.transition_death()
+                        self.enemies.remove(enemy)
+                        self.dead_enemies.append(enemy)
+                        self.interactables.append(enemy) # for player interactions
+        self.player.attack_signal = False # reset to false after handling loop
 
     # ------------------------------------------------------------------
     # Collision  (everything in BASE coords)
