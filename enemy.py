@@ -29,7 +29,6 @@ class Enemy(pygame.sprite.Sprite):
         self._colour = (240, 10, 20)
         self._icon = None
         self.base_image = self._build_image()
-        self.base_image_alpha = 255
         # rect tracks BASE coords for collision / LoS polygon test
         self.rect = self.base_image.get_rect(center=(int(self.position.x),
                                                       int(self.position.y)))
@@ -46,12 +45,14 @@ class Enemy(pygame.sprite.Sprite):
         # vision — all distances in base units
         self.FOV           = 100
         self.cone_res      = 0.5
-        self.view_distance = 150        # base units
+        self.view_distance = 200        # base units
 
         self.turn_speed = 360           # degrees / second
 
         self.state     = "patrol"
         self.carried = False
+        self.hidden = False
+        self.move_condition = True
         self.patrol_ID = 0
 
         self.search_path = []
@@ -85,6 +86,7 @@ class Enemy(pygame.sprite.Sprite):
         self.patrol_path = []
         self.return_path = []
         self.search_path = []
+        self.direction = pygame.Vector2(0, 0)
         self.player_pos = None
         self.player_speed = 0
 
@@ -92,12 +94,18 @@ class Enemy(pygame.sprite.Sprite):
         # becomes an interactable
         self.speed = self.player_speed
         if self.carried:
-            self.base_image_alpha = 0
-            self.base_image.set_alpha(self.base_image_alpha)
-            self.set_direction(self.player_pos)
+            self.position = self.player_pos
+    
+    def hide(self, interactable):
+        self.hidden = not self.hidden
+        if self.hidden:
+            self.carried = False
+            self.move_condition = False
+            self.position = interactable.rect.center
         else:
-            self.base_image_alpha = 255
-            self.base_image.set_alpha(self.base_image_alpha)
+            self.move_condition = True
+            self.carried = True
+    
         
 
     # ------------------------------------------------------------------
@@ -295,10 +303,11 @@ class Enemy(pygame.sprite.Sprite):
             self.angle += rotation_amount if angle_diff > 0 else -rotation_amount
 
     def move(self, dt, desired_angle=None):
-        self.position += dt * self.speed * self.direction
-        self.rect.center = (int(self.position.x), int(self.position.y))
-        if desired_angle is not None or self.direction.length() > 0:
-            self.rotate(dt, desired_angle)
+        if self.move_condition:
+            self.position += dt * self.speed * self.direction
+            self.rect.center = (int(self.position.x), int(self.position.y))
+            if desired_angle is not None or self.direction.length() > 0:
+                self.rotate(dt, desired_angle)
 
     # ------------------------------------------------------------------
     # Vision  (ray casting in BASE coords)
@@ -400,6 +409,6 @@ class Enemy(pygame.sprite.Sprite):
             self.scout()
         elif self.state == "dead":
             self.death()
-            
-        self.move(dt, self.target_angle)
-        self.update_vision()
+        if self.state != "dead": 
+            self.move(dt, self.target_angle)
+            self.update_vision()

@@ -72,10 +72,10 @@ class Level:
         for dead_enemy in self.dead_enemies:
             dead_enemy.update(dt)
             if dead_enemy.carried:
-                dead_enemy.player_pos = self.player.position
+                dead_enemy.player_pos = self.player.rect.midleft
                 dead_enemy.player_speed = self.player.speed
             else:
-                dead_enemy.player_pos = 0
+                dead_enemy.player_pos = pygame.Vector2(0, 0)
                 dead_enemy.player_speed = 0
                 
 
@@ -159,13 +159,14 @@ class Level:
         if self.player.interact_signal:
             target_candidates = {}
             for i in self.interactables:
-                distance_vec = self.player.position - pygame.Vector2(i.rect.center)
-                if distance_vec.magnitude() <= 50 or i != self.player.body:   # base units
-                    if isinstance(i, Door):
-                        target_candidates[i] = distance_vec.magnitude()
-                    elif not self.graph.line_blocked(self.player.position,
-                                                     pygame.Vector2(i.rect.center)):
-                        target_candidates[i] = distance_vec.magnitude()
+                if i != self.player.body:
+                    distance_vec = self.player.position - pygame.Vector2(i.rect.center)
+                    if distance_vec.magnitude() <= 50:   # base units
+                        if isinstance(i, Door):
+                            target_candidates[i] = distance_vec.magnitude()
+                        elif not self.graph.line_blocked(self.player.position,
+                                                        pygame.Vector2(i.rect.center)):
+                            target_candidates[i] = distance_vec.magnitude()
             if target_candidates:
                 key = min(target_candidates, key=target_candidates.get)
                 self.player.interact_signal = False
@@ -192,11 +193,9 @@ class Level:
                 interactable.interact()
             elif isinstance(interactable, Enemy):
                 # carry, drop, hide sequences
-                self.player.carrying_body = not self.player.carrying_body
-                interactable.carried = not interactable.carried
+                self.player.carrying_body = True
+                interactable.carried = True
                 self.player.body = interactable
-
-                
 
 
     def handle_input(self, event):
@@ -422,6 +421,7 @@ class HidingSpot:
     def __init__(self, x, y):
         self.rect    = pygame.Rect(x, y, 32, 32)       # BASE coords
         self.in_use  = False
+        self.body = None
 
     def draw(self, surface):
         colour = (0, 128, 128) if self.in_use else (102, 178, 178)

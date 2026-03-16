@@ -51,11 +51,6 @@ class Player(pygame.sprite.Sprite):
         size = max(1, int(20 * settings.scale_total_x))
         surface = pygame.Surface((size, size), pygame.SRCALPHA)
         pygame.draw.circle(surface, self.colour, (size // 2, size // 2), size // 2)
-        if self.body != None:
-            body_image = self.body.base_image
-            body_image = pygame.transform.scale(body_image, (size//2, size//2))
-            body_image.set_alpha(255)
-            surface.blit(body_image, (0, 0))
         return surface
 
     def _rotate_to_mouse(self):
@@ -99,12 +94,25 @@ class Player(pygame.sprite.Sprite):
 
     def hide(self, interactable):
         if not self.hidden:
-            self.last_pos   = pygame.Vector2(self.position)
-            self.speed_mult = 0
-            # interactable.rect is in base coords, so this is safe
-            self.colour = (255, 255, 255)
-            self.position   = pygame.Vector2(interactable.rect.center)
-            self.hidden     = True
+            if not self.carrying_body:
+                if interactable.in_use:
+                    # pick up body
+                    self.body = interactable.body
+                    interactable.body.hide(interactable)
+                else:
+                    self.last_pos   = pygame.Vector2(self.position)
+                    self.speed_mult = 0
+                    # interactable.rect is in base coords, so this is safe
+                    self.colour = (255, 255, 255)
+                    self.position   = pygame.Vector2(interactable.rect.center)
+                    self.hidden     = True
+            elif self.carrying_body and self.body != None:
+                if not interactable.in_use:
+                    # hide body
+                    interactable.body = self.body
+                    self.body.hide(interactable)
+                else:
+                    return # do nothing
         else:
             self.speed_mult = 1
             self.colour = (60, 120, 220)
@@ -118,11 +126,10 @@ class Player(pygame.sprite.Sprite):
         # level reads this in handle_player_attacks and verifies whether attack is successful        
     
     def drop_body(self):
-        self.body.base_image.set_alpha(255)
-        self.body.icon_surface.set_alpha(255)
-        self.body.carried = False
-        self.body = None
-        self.carrying_body = False
+        if self.body != None:
+            self.body.carried = False
+            self.body = None
+            self.carrying_body = False
         
 
     def resolve_collision(self, offset: pygame.Vector2):
