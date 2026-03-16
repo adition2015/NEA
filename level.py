@@ -66,17 +66,14 @@ class Level:
         self.handle_interaction()
         self.check_enemy_interactions()
         self.handle_attack()
-        self.update_vision_cones(dt)
+        self.update_vision_cones(dt)    
         for enemy in self.enemies:
             enemy.update(dt)
         for dead_enemy in self.dead_enemies:
             dead_enemy.update(dt)
             if dead_enemy.carried:
-                dead_enemy.player_pos = self.player.rect.midleft
-                dead_enemy.player_speed = self.player.speed
-            else:
-                dead_enemy.player_pos = pygame.Vector2(0, 0)
-                dead_enemy.player_speed = 0
+                dead_enemy.position = pygame.Vector2(self.player.position)
+                dead_enemy.rect.center = (int(dead_enemy.position.x), int(dead_enemy.position.y))
                 
 
     def draw(self, screen, fps):
@@ -189,13 +186,71 @@ class Level:
             if isinstance(interactable, Door):
                 interactable.interact(self.collision_rects)
             elif isinstance(interactable, HidingSpot):
-                self.player.hide(interactable)
-                interactable.interact()
+                if self.player.hidden:
+                    self._player_unhide()
+                elif self.player.carrying_body:
+                    self._deposit_body(interactable)
+                elif interactable.in_use:
+                    self._retrieve_body(interactable)
+                else:
+                    self._player_hide(interactable)
             elif isinstance(interactable, Enemy):
-                # carry, drop, hide sequences
-                self.player.carrying_body = True
-                interactable.carried = True
-                self.player.body = interactable
+                if not self.player.carrying_body:
+                    self._pick_up_body(interactable)
+
+        if self.player.drop_signal:
+            self._drop_body()
+            self.player.drop_signal = False
+
+    def _pick_up_body(self, enemy): 
+        self.player.body = enemy
+        self.player.carrying_body = True
+        self.player.colour = (150, 100, 100)
+        enemy.carried = True
+
+    def _deposit_body(self, hiding_spot):
+        if not hiding_spot.in_use:
+            hiding_spot.body = self.player.body
+            self.player.body.carried = False
+            hiding_spot.body.move_condition = False
+            hiding_spot.body.position = pygame.Vector2(hiding_spot.rect.center)
+            hiding_spot.body.rect.center = hiding_spot.rect.center                
+            hiding_spot.body.colour = (50, 30, 30) 
+            hiding_spot.interact()
+            self.player.body = None
+            self.player.carrying_body = False
+            self.player.colour = (60, 120, 220)
+
+    def _retrieve_body(self, hiding_spot):
+        self.player.body = hiding_spot.body
+        self.player.body.carried = True
+        self.player.body.colour = (97, 64, 65)
+        hiding_spot.body = None
+        hiding_spot.interact()
+        self.player.carrying_body = True
+        self.player.colour = (150, 100, 100)
+
+    def _player_hide(self, hiding_spot):
+        self.player.last_pos = pygame.Vector2(self.player.position)
+        self.player.speed_mult = 0
+        self.player.colour = (255, 255, 255)
+        self.player.position = pygame.Vector2(hiding_spot.rect.center)
+        self.player.hidden = True
+
+    def _player_unhide(self):
+        self.player.speed_mult = 1
+        self.player.colour = (60, 120, 220)
+        self.player.position = self.player.last_pos
+        self.player.last_pos = None
+        self.player.hidden = False
+        
+
+    def _drop_body(self):
+        if self.player.body:
+            self.player.body.carried = False
+            self.player.body = None
+            self.player.carrying_body = False
+            self.player.colour = (60, 120, 220)
 
 
     def handle_input(self, event):

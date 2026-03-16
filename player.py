@@ -44,6 +44,7 @@ class Player(pygame.sprite.Sprite):
         self.move_condition  = False
         self.interact_signal = False
         self.attack_signal = False
+        self.drop_signal = False
 
     def _build_image(self) -> pygame.Surface:
         # Image is built at screen pixel size so it looks correct on the
@@ -73,7 +74,7 @@ class Player(pygame.sprite.Sprite):
         if event.type == pygame.KEYDOWN and event.key == pygame.K_e:
             self.interact_signal = True
         if event.type == pygame.KEYDOWN and event.key == pygame.K_q:
-            self.drop_body()
+            self.drop_signal = True
         if event.type == pygame.MOUSEBUTTONDOWN:
             if pygame.mouse.get_pressed()[0]:
                 self.attack()
@@ -84,6 +85,9 @@ class Player(pygame.sprite.Sprite):
             if event.key in (pygame.K_LSHIFT, pygame.K_LCTRL):
                 transitions = MOVEMENT_TRANSITIONS[self.movement_mode]
                 self.movement_mode = transitions[0] if event.key == pygame.K_LSHIFT else transitions[1]
+            if self.carrying_body and self.movement_mode == 3:
+                self.movement_mode = 2
+                
 
     def move(self, dt: float):
         if self.move_condition:
@@ -92,7 +96,7 @@ class Player(pygame.sprite.Sprite):
             self.position += self.direction * self.speed * dt * self.speed_mult
             self.rect.center = (int(self.position.x), int(self.position.y))
 
-    def hide(self, interactable):
+    """def hide(self, interactable):
         if not self.hidden:
             if not self.carrying_body:
                 if interactable.in_use:
@@ -118,18 +122,18 @@ class Player(pygame.sprite.Sprite):
             self.colour = (60, 120, 220)
             self.position   = self.last_pos
             self.last_pos   = None
-            self.hidden     = False
+            self.hidden     = False"""
 
     def attack(self):
         # produces attack signal
         self.attack_signal = True
         # level reads this in handle_player_attacks and verifies whether attack is successful        
     
-    def drop_body(self):
+    """def drop_body(self):
         if self.body != None:
             self.body.carried = False
             self.body = None
-            self.carrying_body = False
+            self.carrying_body = False"""
         
 
     def resolve_collision(self, offset: pygame.Vector2):

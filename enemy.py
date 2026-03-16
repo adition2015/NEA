@@ -87,24 +87,7 @@ class Enemy(pygame.sprite.Sprite):
         self.return_path = []
         self.search_path = []
         self.direction = pygame.Vector2(0, 0)
-        self.player_pos = None
-        self.player_speed = 0
 
-    def death(self):
-        # becomes an interactable
-        self.speed = self.player_speed
-        if self.carried:
-            self.position = self.player_pos
-    
-    def hide(self, interactable):
-        self.hidden = not self.hidden
-        if self.hidden:
-            self.carried = False
-            self.move_condition = False
-            self.position = interactable.rect.center
-        else:
-            self.move_condition = True
-            self.carried = True
     
         
 
@@ -407,8 +390,6 @@ class Enemy(pygame.sprite.Sprite):
         elif self.state == "scout":
             self.speed = 0
             self.scout()
-        elif self.state == "dead":
-            self.death()
         if self.state != "dead": 
             self.move(dt, self.target_angle)
             self.update_vision()
