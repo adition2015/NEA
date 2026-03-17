@@ -7,4 +7,4 @@ game = GameStateManager()
 if __name__ == "__main__":
     game.run()
     pygame.quit()
-    sys.exit()
+    sys.exit() 

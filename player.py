@@ -10,7 +10,11 @@ MOVEMENT_TRANSITIONS = {
     3: (2, 1),
 }
 
-NOISE_LEVELS = {1: 30, 2: 80, 3: 150}
+NOISE_LEVELS = {
+    1: 80,      # sneak:  sqrt(80/1)   ≈ 89px detectable, never directable
+    2: 40000,   # walk:   sqrt(40000/1) = 200px detectable, sqrt(40000/2) ≈ 141px directable
+    3: 160000   # run:    sqrt(160000/1) = 400px detectable, sqrt(160000/2) ≈ 283px directable
+}
 
 
 class Player(pygame.sprite.Sprite):

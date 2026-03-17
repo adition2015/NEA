@@ -5,12 +5,18 @@ from settings import settings, BASE_LEVEL_RES
 from utils import draw_debug
 from grid_waypoint import WaypointGraph
 from pathfinding import distance, a_star
+from noise import NoiseEvent
 
-DETECTABLE_THRESHOLD = 50
-DIRECTABLE_THRESHOLD = 100
+DETECTABLE_THRESHOLD = 1.0
+DIRECTABLE_THRESHOLD = 2.0
+
+
 SUSPICION_CONVERSION_CONSTANT = 0.5
-SUSPICION_DECAY_CONSTANT = 1
-PCF = 500 # pixel conversion factor for isq in noise propagation.
+SUSPICION_DECAY_CONSTANT = 5  # per second
+SUSPICION_THRESHOLD = 50      # must be reached for directable noise to alert
+SUSPICION_CAP = 100.0
+SUSPICION_MULTIPLIER_CAP = 3.0
+ # pixel conversion factor for isq in noise propagation.
 
 class Level:
     def __init__(self, ID, data):
@@ -72,7 +78,7 @@ class Level:
         self.check_enemy_interactions()
         self.handle_attack()
         self.update_vision_cones(dt)  
-        self._process_noise()  
+        self._process_noise(dt)  
         for enemy in self.enemies:
             enemy.update(dt)
         for dead_enemy in self.dead_enemies:
@@ -125,6 +131,7 @@ class Level:
             "fps":              round(fps),
             "enemy_states":     [f"{i}:{e.state}"     for i, e in enumerate(self.enemies)],
             "enemy_directions": [f"{i}:{e.direction}" for i, e in enumerate(self.enemies)],
+            "enemy_suspicion": [f"{i}:{e.suspicion}:{e.suspicion_multiplier}" for i, e in enumerate(self.enemies)]
         }, size=16)
 
     # ------------------------------------------------------------------
@@ -305,37 +312,43 @@ class Level:
     # ------------------------------------------------------------------
     # Noise Processing
     # ------------------------------------------------------------------
-    def _process_noise(self):
-        from noise import NoiseEvent
-        self.events = [] # there would only be one player event per frame so this logic
-        
-
+    def _process_noise(self, dt):
+        self.events = []
         if self.player.noise_signal > 0:
             self.events.append(NoiseEvent(self.player.position, self.player.noise_signal))
-        
-        for enemy in self.enemies:
-            candidate_noise = [] # will be noise objects
-            target = None
-            for event in self.events:
-                distance_sq = enemy.position.distance_squared_to(event.position) / (PCF**2)
-                perceived = event.intensity / distance_sq
-                candidate_noise.append(NoiseEvent(event.position, perceived))
-            if candidate_noise:
-                target = max(candidate_noise, key = lambda noise: noise.intensity)
-            if target != None:
-                if target.intensity > DETECTABLE_THRESHOLD:
-                    if target.intensity > DIRECTABLE_THRESHOLD:    
-                        if enemy.last_heard.intensity < target.intensity:
-                            enemy.last_heard = target
-                            alerted_path = self._compute_alerted_path(enemy)
-                            enemy.transition_alerted(target, alerted_path)
-                    else:
-                        enemy.last_heard = target
-                        enemy.transition_investigate(target)
-                    
 
-    def update_suspicion(self, enemy, intensity):
-        pass
+        for enemy in self.enemies:
+            candidate_noise = []
+            for event in self.events:
+                distance_sq = enemy.position.distance_squared_to(event.position)
+                perceived = float('inf') if distance_sq == 0 else event.intensity / distance_sq
+                candidate_noise.append(NoiseEvent(event.position, perceived))
+
+            if not candidate_noise:
+                self.update_suspicion(enemy, 0, dt)  # still decay
+                continue
+
+            target = max(candidate_noise, key=lambda n: n.intensity)
+            self.update_suspicion(enemy, target.intensity, dt)
+
+            if target.intensity > DIRECTABLE_THRESHOLD:
+                if enemy.suspicion >= SUSPICION_THRESHOLD:  # ← the gate
+                    if enemy.last_heard.intensity < target.intensity:
+                        enemy.last_heard = target
+                        alerted_path = self._compute_alerted_path(enemy)
+                        enemy.transition_alerted(target, alerted_path)
+            elif target.intensity > DETECTABLE_THRESHOLD:
+                enemy.transition_investigate(target)
+                        
+
+    def update_suspicion(self, enemy, intensity, dt):
+        # Decay every frame regardless of noise
+        enemy.suspicion = max(0, enemy.suspicion - SUSPICION_DECAY_CONSTANT * dt)
+
+        # Accrue if above detectable threshold
+        if intensity > DETECTABLE_THRESHOLD:
+            gain = (intensity - DETECTABLE_THRESHOLD) * SUSPICION_CONVERSION_CONSTANT * enemy.suspicion_multiplier
+            enemy.suspicion = min(SUSPICION_CAP, enemy.suspicion + gain)
                     
                 
 
@@ -393,6 +406,10 @@ class Level:
                 if not enemy.return_path:
                     return_path = self._compute_return_path(enemy)
                     enemy.set_return_path(return_path)
+            for dead_enemy in self.dead_enemies:
+                if self._point_in_polygon(dead_enemy.position, enemy.vision_points):
+                    enemy.suspicion_multiplier = min(SUSPICION_MULTIPLIER_CAP, enemy.suspicion_multiplier + 1.0)
+                    enemy.suspicion = min(SUSPICION_CAP, enemy.suspicion + 30)  # immediate spike
 
     def draw_vision_cones(self):
         """Build and draw cones; vision_points stay in BASE coords for LoS tests."""
@@ -490,7 +507,7 @@ class Level:
 
     def draw_noise_circles(self, surface):
         for event in self.events:
-            event.draw_noise_circles(surface, PCF, DETECTABLE_THRESHOLD, DIRECTABLE_THRESHOLD, settings.scale_diagonal)
+            event.draw_noise_circles(surface, DETECTABLE_THRESHOLD, DIRECTABLE_THRESHOLD)
 # ===========================================================================
 # Level objects  —  rects stored in BASE coords, scaled only in draw()
 # ===========================================================================
