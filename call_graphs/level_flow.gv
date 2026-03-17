@@ -1,0 +1,131 @@
+digraph G {
+concentrate=true;
+splines="ortho";
+rankdir="LR";
+subgraph legend{
+    rank = min;
+    label = "legend";
+    Legend [shape=none, margin=0, label = <
+        <table cellspacing="0" cellpadding="0" border="1"><tr><td>Code2flow Legend</td></tr><tr><td>
+        <table cellspacing="0">
+        <tr><td>Regular function</td><td width="50px" bgcolor='#cccccc'></td></tr>
+        <tr><td>Trunk function (nothing calls this)</td><td bgcolor='#966F33'></td></tr>
+        <tr><td>Leaf function (this calls nothing else)</td><td bgcolor='#6db33f'></td></tr>
+        <tr><td>Function call</td><td><font color='black'>&#8594;</font></td></tr>
+        </table></td></tr></table>
+        >];
+}node_f6d54110 [label="526: __init__()" name="level::Door.__init__" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_1ece8da3 [label="540: close()" name="level::Door.close" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_f2b2346d [label="545: interact()" name="level::Door.interact" shape="rect" style="rounded,filled" fillcolor="#966F33" ];
+node_a59a3d43 [label="532: open()" name="level::Door.open" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_a2a33ea2 [label="557: __init__()" name="level::HidingSpot.__init__" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_faa9a4ef [label="22: __init__()" name="level::Level.__init__" shape="rect" style="rounded,filled" fillcolor="#966F33" ];
+node_fdc80a3a [label="301: _calculate_pushout()" name="level::Level._calculate_pushout" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_920ac9a1 [label="444: _compute_alerted_path()" name="level::Level._compute_alerted_path" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_96f93b0c [label="452: _compute_return_path()" name="level::Level._compute_return_path" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_96ffe035 [label="436: _compute_search_path()" name="level::Level._compute_search_path" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_b1fb7946 [label="226: _deposit_body()" name="level::Level._deposit_body" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_abf7d816 [label="263: _drop_body()" name="level::Level._drop_body" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_289348f6 [label="141: _load_level()" name="level::Level._load_level" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_f98e46a0 [label="220: _pick_up_body()" name="level::Level._pick_up_body" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_7e72872a [label="248: _player_hide()" name="level::Level._player_hide" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_5134fbf2 [label="255: _player_unhide()" name="level::Level._player_unhide" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_c9ee8a0e [label="380: _point_in_polygon()" name="level::Level._point_in_polygon" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_4e290444 [label="315: _process_noise()" name="level::Level._process_noise" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_4f2813e6 [label="290: _resolve_collisions()" name="level::Level._resolve_collisions" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_ebf221f2 [label="239: _retrieve_body()" name="level::Level._retrieve_body" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_c507412c [label="189: check_enemy_interactions()" name="level::Level.check_enemy_interactions" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_7e93fe81 [label="170: check_interaction()" name="level::Level.check_interaction" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_72d76d39 [label="374: check_player_LoS()" name="level::Level.check_player_LoS" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_e2e51b8b [label="91: draw()" name="level::Level.draw" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_94ab1cef [label="469: draw_enemy_paths()" name="level::Level.draw_enemy_paths" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_a6ccb69f [label="500: draw_icons()" name="level::Level.draw_icons" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_0dd66609 [label="510: draw_noise_circles()" name="level::Level.draw_noise_circles" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_568269b5 [label="415: draw_vision_cones()" name="level::Level.draw_vision_cones" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_81a90329 [label="274: handle_attack()" name="level::Level.handle_attack" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_8f043e35 [label="271: handle_input()" name="level::Level.handle_input" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_a297f6b0 [label="198: handle_interaction()" name="level::Level.handle_interaction" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_0f54bc9c [label="360: precalculate_patrol_path()" name="level::Level.precalculate_patrol_path" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_d6717817 [label="160: relative_cursor_pos()" name="level::Level.relative_cursor_pos" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_ecb6e322 [label="73: update()" name="level::Level.update" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_59983db6 [label="345: update_suspicion()" name="level::Level.update_suspicion" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_0cb0f435 [label="393: update_vision_cones()" name="level::Level.update_vision_cones" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_c9db42b0 [label="518: __init__()" name="level::Wall.__init__" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_f2b2346d -> node_1ece8da3 [color="#0072B2" penwidth="2"];
+node_f2b2346d -> node_a59a3d43 [color="#0072B2" penwidth="2"];
+node_faa9a4ef -> node_289348f6 [color="#CC79A7" penwidth="2"];
+node_faa9a4ef -> node_0f54bc9c [color="#CC79A7" penwidth="2"];
+node_289348f6 -> node_f6d54110 [color="#D55E00" penwidth="2"];
+node_289348f6 -> node_a2a33ea2 [color="#D55E00" penwidth="2"];
+node_289348f6 -> node_c9db42b0 [color="#D55E00" penwidth="2"];
+node_4e290444 -> node_920ac9a1 [color="#F0E442" penwidth="2"];
+node_4e290444 -> node_59983db6 [color="#F0E442" penwidth="2"];
+node_4e290444 -> node_59983db6 [color="#F0E442" penwidth="2"];
+node_4f2813e6 -> node_fdc80a3a [color="#D55E00" penwidth="2"];
+node_4f2813e6 -> node_fdc80a3a [color="#D55E00" penwidth="2"];
+node_72d76d39 -> node_c9ee8a0e [color="#E69F00" penwidth="2"];
+node_e2e51b8b -> node_e2e51b8b [color="#009E73" penwidth="2"];
+node_e2e51b8b -> node_94ab1cef [color="#009E73" penwidth="2"];
+node_e2e51b8b -> node_a6ccb69f [color="#009E73" penwidth="2"];
+node_e2e51b8b -> node_0dd66609 [color="#009E73" penwidth="2"];
+node_e2e51b8b -> node_568269b5 [color="#009E73" penwidth="2"];
+node_e2e51b8b -> node_d6717817 [color="#009E73" penwidth="2"];
+node_0dd66609 -> node_0dd66609 [color="#E69F00" penwidth="2"];
+node_81a90329 -> node_72d76d39 [color="#E69F00" penwidth="2"];
+node_8f043e35 -> node_8f043e35 [color="#0072B2" penwidth="2"];
+node_a297f6b0 -> node_b1fb7946 [color="#000000" penwidth="2"];
+node_a297f6b0 -> node_abf7d816 [color="#000000" penwidth="2"];
+node_a297f6b0 -> node_f98e46a0 [color="#000000" penwidth="2"];
+node_a297f6b0 -> node_7e72872a [color="#000000" penwidth="2"];
+node_a297f6b0 -> node_5134fbf2 [color="#000000" penwidth="2"];
+node_a297f6b0 -> node_ebf221f2 [color="#000000" penwidth="2"];
+node_a297f6b0 -> node_7e93fe81 [color="#000000" penwidth="2"];
+node_0f54bc9c -> node_0f54bc9c [color="#F0E442" penwidth="2"];
+node_ecb6e322 -> node_4e290444 [color="#56B4E9" penwidth="2"];
+node_ecb6e322 -> node_4f2813e6 [color="#56B4E9" penwidth="2"];
+node_ecb6e322 -> node_c507412c [color="#56B4E9" penwidth="2"];
+node_ecb6e322 -> node_81a90329 [color="#56B4E9" penwidth="2"];
+node_ecb6e322 -> node_a297f6b0 [color="#56B4E9" penwidth="2"];
+node_ecb6e322 -> node_ecb6e322 [color="#56B4E9" penwidth="2"];
+node_ecb6e322 -> node_ecb6e322 [color="#56B4E9" penwidth="2"];
+node_ecb6e322 -> node_ecb6e322 [color="#56B4E9" penwidth="2"];
+node_ecb6e322 -> node_0cb0f435 [color="#56B4E9" penwidth="2"];
+node_0cb0f435 -> node_96f93b0c [color="#0072B2" penwidth="2"];
+node_0cb0f435 -> node_96ffe035 [color="#0072B2" penwidth="2"];
+node_0cb0f435 -> node_c9ee8a0e [color="#0072B2" penwidth="2"];
+node_0cb0f435 -> node_72d76d39 [color="#0072B2" penwidth="2"];
+subgraph cluster_9a485e32 {
+    label="File: level";
+    name="level";
+    style="filled";
+    graph[style=dotted];
+    subgraph cluster_e946183b {
+        node_faa9a4ef node_ecb6e322 node_e2e51b8b node_289348f6 node_d6717817 node_7e93fe81 node_c507412c node_a297f6b0 node_f98e46a0 node_b1fb7946 node_ebf221f2 node_7e72872a node_5134fbf2 node_abf7d816 node_8f043e35 node_81a90329 node_4f2813e6 node_fdc80a3a node_4e290444 node_59983db6 node_0f54bc9c node_72d76d39 node_c9ee8a0e node_0cb0f435 node_568269b5 node_96ffe035 node_920ac9a1 node_96f93b0c node_94ab1cef node_a6ccb69f node_0dd66609;
+        label="Class: Level";
+        name="Level";
+        style="filled";
+        graph[style=dotted];
+    };
+    subgraph cluster_4420ddfe {
+        node_c9db42b0;
+        label="Class: Wall";
+        name="Wall";
+        style="filled";
+        graph[style=dotted];
+    };
+    subgraph cluster_45222e50 {
+        node_f6d54110 node_a59a3d43 node_1ece8da3 node_f2b2346d;
+        label="Class: Door";
+        name="Door";
+        style="filled";
+        graph[style=dotted];
+    };
+    subgraph cluster_79d0feb3 {
+        node_a2a33ea2;
+        label="Class: HidingSpot";
+        name="HidingSpot";
+        style="filled";
+        graph[style=dotted];
+    };
+};
+}

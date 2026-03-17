@@ -32,7 +32,7 @@ for i,t in enumerate(triangles):
         print('triangle overlaps obstacle area', i)
 
 # now use NavMesh class
-from navmesh import NavMesh
+from deprecated.navmesh import NavMesh
 # build mesh from walls only (doors are intentionally ignored)
 static_walls = [pygame.Rect(r) for r in collision_rects]  # collision_rects all look like rects
 nav = NavMesh(level_res, static_walls)

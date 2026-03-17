@@ -2,7 +2,7 @@ import sys
 sys.path.insert(0, '.')
 from level import Level
 from utils import load_level
-from navmesh import find_path
+from deprecated.navmesh import find_path
 import pygame
 
 data = load_level(1)

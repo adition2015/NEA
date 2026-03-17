@@ -41,6 +41,7 @@ class Player(pygame.sprite.Sprite):
         # --- visual ---
         self._colour = (60, 120, 220)
         self.base_image = self._build_image()
+
         # rect tracks BASE coords for collision detection
         self.rect = self.base_image.get_rect(center=(int(self.position.x),
                                                       int(self.position.y)))
@@ -76,9 +77,9 @@ class Player(pygame.sprite.Sprite):
 
     def handle_input(self, event):
         self.handle_movement_mode(event)
-        if event.type == pygame.KEYDOWN and event.key == pygame.K_w:
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_w: # confirms movement - have to hold to move
             self.move_condition = True
-        if event.type == pygame.KEYUP and event.key == pygame.K_w:
+        if event.type == pygame.KEYUP and event.key == pygame.K_w: # confirms stopping movement - have to release to stop
             self.move_condition = False
         if event.type == pygame.KEYDOWN and event.key == pygame.K_e:
             self.interact_signal = True

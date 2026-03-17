@@ -1,0 +1,96 @@
+digraph G {
+concentrate=true;
+splines="ortho";
+rankdir="LR";
+subgraph legend{
+    rank = min;
+    label = "legend";
+    Legend [shape=none, margin=0, label = <
+        <table cellspacing="0" cellpadding="0" border="1"><tr><td>Code2flow Legend</td></tr><tr><td>
+        <table cellspacing="0">
+        <tr><td>Regular function</td><td width="50px" bgcolor='#cccccc'></td></tr>
+        <tr><td>Trunk function (nothing calls this)</td><td bgcolor='#966F33'></td></tr>
+        <tr><td>Leaf function (this calls nothing else)</td><td bgcolor='#6db33f'></td></tr>
+        <tr><td>Function call</td><td><font color='black'>&#8594;</font></td></tr>
+        </table></td></tr></table>
+        >];
+}node_bdaec9ad [label="19: __init__()" name="enemy::Enemy.__init__" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_2814f91a [label="76: _build_image()" name="enemy::Enemy._build_image" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_89d535d3 [label="188: alerted()" name="enemy::Enemy.alerted" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_a65d9261 [label="366: build_vision_cone()" name="enemy::Enemy.build_vision_cone" shape="rect" style="rounded,filled" fillcolor="#966F33" ];
+node_ead3aca2 [label="382: cast_ray()" name="enemy::Enemy.cast_ray" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_4f11ed8c [label="145: chase()" name="enemy::Enemy.chase" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_08cfb0d7 [label="423: colour()" name="enemy::Enemy.colour" shape="rect" style="rounded,filled" fillcolor="#966F33" ];
+node_f0d89ac1 [label="125: follow_patrol_path()" name="enemy::Enemy.follow_patrol_path" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_5e829e9b [label="374: get_vision_angles()" name="enemy::Enemy.get_vision_angles" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_47d87d69 [label="433: icon()" name="enemy::Enemy.icon" shape="rect" style="rounded,filled" fillcolor="#966F33" ];
+node_01a9f716 [label="168: investigate()" name="enemy::Enemy.investigate" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_6ca06cab [label="347: move()" name="enemy::Enemy.move" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_038b7171 [label="119: patrol()" name="enemy::Enemy.patrol" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_ad8e853f [label="325: resolve_collision()" name="enemy::Enemy.resolve_collision" shape="rect" style="rounded,filled" fillcolor="#966F33" ];
+node_51555a0c [label="273: returning_to_patrol()" name="enemy::Enemy.returning_to_patrol" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_100d5744 [label="331: rotate()" name="enemy::Enemy.rotate" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_623f79f7 [label="249: scout()" name="enemy::Enemy.scout" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_ac4db07f [label="221: search()" name="enemy::Enemy.search" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_f0fc73ef [label="318: set_direction()" name="enemy::Enemy.set_direction" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_0783675b [label="312: set_return_path()" name="enemy::Enemy.set_return_path" shape="rect" style="rounded,filled" fillcolor="#966F33" ];
+node_32bc4a5d [label="159: transition_investigate()" name="enemy::Enemy.transition_investigate" shape="rect" style="rounded,filled" fillcolor="#966F33" ];
+node_eb1b3421 [label="288: transition_patrol()" name="enemy::Enemy.transition_patrol" shape="rect" style="rounded,filled" fillcolor="#cccccc" ];
+node_b2b531c8 [label="263: transition_returning_to_patrol()" name="enemy::Enemy.transition_returning_to_patrol" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_2c934bd5 [label="240: transition_scout()" name="enemy::Enemy.transition_scout" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_42d4c4c3 [label="207: transition_search()" name="enemy::Enemy.transition_search" shape="rect" style="rounded,filled" fillcolor="#966F33" ];
+node_74fd4e85 [label="449: update()" name="enemy::Enemy.update" shape="rect" style="rounded,filled" fillcolor="#966F33" ];
+node_bb05d799 [label="358: update_vision()" name="enemy::Enemy.update_vision" shape="rect" style="rounded,filled" fillcolor="#6db33f" ];
+node_bdaec9ad -> node_bdaec9ad [color="#0072B2" penwidth="2"];
+node_bdaec9ad -> node_2814f91a [color="#0072B2" penwidth="2"];
+node_89d535d3 -> node_f0fc73ef [color="#009E73" penwidth="2"];
+node_89d535d3 -> node_f0fc73ef [color="#009E73" penwidth="2"];
+node_89d535d3 -> node_b2b531c8 [color="#009E73" penwidth="2"];
+node_89d535d3 -> node_2c934bd5 [color="#009E73" penwidth="2"];
+node_a65d9261 -> node_ead3aca2 [color="#E69F00" penwidth="2"];
+node_a65d9261 -> node_5e829e9b [color="#E69F00" penwidth="2"];
+node_4f11ed8c -> node_f0fc73ef [color="#F0E442" penwidth="2"];
+node_4f11ed8c -> node_f0fc73ef [color="#F0E442" penwidth="2"];
+node_08cfb0d7 -> node_2814f91a [color="#CC79A7" penwidth="2"];
+node_f0d89ac1 -> node_f0fc73ef [color="#E69F00" penwidth="2"];
+node_47d87d69 -> node_2814f91a [color="#E69F00" penwidth="2"];
+node_01a9f716 -> node_2c934bd5 [color="#D55E00" penwidth="2"];
+node_6ca06cab -> node_100d5744 [color="#009E73" penwidth="2"];
+node_038b7171 -> node_f0d89ac1 [color="#E69F00" penwidth="2"];
+node_ad8e853f -> node_f0fc73ef [color="#CC79A7" penwidth="2"];
+node_51555a0c -> node_f0fc73ef [color="#F0E442" penwidth="2"];
+node_51555a0c -> node_f0fc73ef [color="#F0E442" penwidth="2"];
+node_51555a0c -> node_eb1b3421 [color="#F0E442" penwidth="2"];
+node_51555a0c -> node_eb1b3421 [color="#F0E442" penwidth="2"];
+node_623f79f7 -> node_b2b531c8 [color="#CC79A7" penwidth="2"];
+node_ac4db07f -> node_f0fc73ef [color="#CC79A7" penwidth="2"];
+node_ac4db07f -> node_f0fc73ef [color="#CC79A7" penwidth="2"];
+node_ac4db07f -> node_eb1b3421 [color="#CC79A7" penwidth="2"];
+node_ac4db07f -> node_2c934bd5 [color="#CC79A7" penwidth="2"];
+node_0783675b -> node_f0fc73ef [color="#009E73" penwidth="2"];
+node_32bc4a5d -> node_f0fc73ef [color="#0072B2" penwidth="2"];
+node_eb1b3421 -> node_f0fc73ef [color="#E69F00" penwidth="2"];
+node_42d4c4c3 -> node_f0fc73ef [color="#009E73" penwidth="2"];
+node_74fd4e85 -> node_89d535d3 [color="#0072B2" penwidth="2"];
+node_74fd4e85 -> node_4f11ed8c [color="#0072B2" penwidth="2"];
+node_74fd4e85 -> node_01a9f716 [color="#0072B2" penwidth="2"];
+node_74fd4e85 -> node_6ca06cab [color="#0072B2" penwidth="2"];
+node_74fd4e85 -> node_038b7171 [color="#0072B2" penwidth="2"];
+node_74fd4e85 -> node_51555a0c [color="#0072B2" penwidth="2"];
+node_74fd4e85 -> node_623f79f7 [color="#0072B2" penwidth="2"];
+node_74fd4e85 -> node_ac4db07f [color="#0072B2" penwidth="2"];
+node_74fd4e85 -> node_bb05d799 [color="#0072B2" penwidth="2"];
+subgraph cluster_9845155e {
+    label="File: enemy";
+    name="enemy";
+    style="filled";
+    graph[style=dotted];
+    subgraph cluster_fd8d7612 {
+        node_bdaec9ad node_2814f91a node_038b7171 node_f0d89ac1 node_4f11ed8c node_32bc4a5d node_01a9f716 node_89d535d3 node_42d4c4c3 node_ac4db07f node_2c934bd5 node_623f79f7 node_b2b531c8 node_51555a0c node_eb1b3421 node_0783675b node_f0fc73ef node_ad8e853f node_100d5744 node_6ca06cab node_bb05d799 node_a65d9261 node_5e829e9b node_ead3aca2 node_08cfb0d7 node_47d87d69 node_74fd4e85;
+        label="Class: Enemy";
+        name="Enemy";
+        style="filled";
+        graph[style=dotted];
+    };
+};
+}
