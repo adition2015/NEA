@@ -9,6 +9,7 @@ MOVEMENT_TRANSITIONS = {
     2: (3, 1),
     3: (2, 1),
 }
+NOISE_LEVELS = {1: 30, 2: 80, 3: 150}
 
 
 class Player(pygame.sprite.Sprite):
@@ -45,6 +46,8 @@ class Player(pygame.sprite.Sprite):
         self.interact_signal = False
         self.attack_signal = False
         self.drop_signal = False
+        self.noise_signal = 0
+
 
     def _build_image(self) -> pygame.Surface:
         # Image is built at screen pixel size so it looks correct on the
@@ -90,6 +93,7 @@ class Player(pygame.sprite.Sprite):
                 
 
     def move(self, dt: float):
+        self.noise_signal = NOISE_LEVELS[self.movement_mode] if self.move_condition else 0
         if self.move_condition:
             # All arithmetic in base coords — no scale needed here.
             self.speed = SPEED[self.movement_mode]

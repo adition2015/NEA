@@ -3,9 +3,13 @@ from player import Player
 from enemy import Enemy
 from settings import settings, BASE_LEVEL_RES
 from utils import draw_debug
-from grid_waypoint import Waypoint, WaypointGraph
+from grid_waypoint import WaypointGraph
 from pathfinding import distance, a_star
 
+DETECTABLE_THRESHOLD = 50
+DIRECTABLE_THRESHOLD = 100
+SUSPICION_CONVERSION_CONSTANT = 0.5
+SUSPICION_DECAY_CONSTANT = 1
 
 class Level:
     def __init__(self, ID, data):
@@ -66,7 +70,8 @@ class Level:
         self.handle_interaction()
         self.check_enemy_interactions()
         self.handle_attack()
-        self.update_vision_cones(dt)    
+        self.update_vision_cones(dt)  
+        self._process_noise()  
         for enemy in self.enemies:
             enemy.update(dt)
         for dead_enemy in self.dead_enemies:
@@ -295,6 +300,36 @@ class Level:
         return pygame.Vector2(min_x, 0) if abs(min_x) < abs(min_y) else pygame.Vector2(0, min_y)
 
     # ------------------------------------------------------------------
+    # Noise Processing
+    # ------------------------------------------------------------------
+    def _process_noise(self):
+        from noise import NoiseEvent
+        events = []
+        
+
+        if self.player.noise_signal > 0:
+            events.append(NoiseEvent(self.player.position, self.player.noise_signal))
+        
+        for enemy in self.enemies:
+            candidate_noise = [] # will be noise objects
+            for event in events:
+                distance_sq = enemy.position.distance_squared_to(event.position)
+                perceived = event.intensity / distance_sq
+                candidate_noise += NoiseEvent(event.position, perceived)
+            target = max(candidate_noise, key = lambda noise: noise.intensity)
+            if target.intensity > DETECTABLE_THRESHOLD:
+                if target.intensity > DIRECTABLE_THRESHOLD and enemy.last_heard < target.intensity:
+                    enemy.transition_alert(target.position)
+                else:
+                    enemy.transition_investigate()
+                
+
+    def update_suspicion(self, enemy, intensity):
+        pass
+                    
+                
+
+    # ------------------------------------------------------------------
     # Patrol path pre-calculation
     # ------------------------------------------------------------------
 
@@ -375,7 +410,15 @@ class Level:
         start_wp = self.graph.nearest_waypoint(enemy.position)
         end_wp   = self.graph.nearest_waypoint(enemy.last_seen)
         path = a_star(start_wp, end_wp)
-        return path if path else []   # list[Vector2] in BASE coords
+        return path if path != None else []   # list[Vector2] in BASE coords
+    
+    def _compute_investigate_path(self, enemy) -> list:
+        if enemy.last_heard is None:
+            return []
+        start_wp = self.graph.nearest_waypoint(enemy.position)
+        end_wp  = self.graph.nearest_waypoint(enemy.last_heard)
+        path = a_star(start_wp, end_wp)
+        return path if path != None else []
 
     def _compute_return_path(self, enemy) -> list:
         if not enemy.patrol_path:
@@ -388,7 +431,7 @@ class Level:
         start_wp = self.graph.nearest_waypoint(enemy.position)
         end_wp   = self.graph.nearest_waypoint(nearest_pt)
         path = a_star(start_wp, end_wp)
-        return path if path else []   # list[Vector2] in BASE coords
+        return path if path != None else []   # list[Vector2] in BASE coords
 
     # ------------------------------------------------------------------
     # Debug drawing helpers

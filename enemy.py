@@ -60,7 +60,8 @@ class Enemy(pygame.sprite.Sprite):
         self.return_path = []
         self.return_id   = 0
 
-
+        self.suspicion = 0.0
+        self.last_heard = None
 
     # ------------------------------------------------------------------
     # Visual
@@ -142,6 +143,13 @@ class Enemy(pygame.sprite.Sprite):
         else:
             self.speed = CHASE_SPEED
             self.set_direction(self.player_obs)
+
+    # ------------------------------------------------------------------
+    # Investigate
+    # ------------------------------------------------------------------
+
+    def transition_investigate(self, last_heard):
+        pass
 
     # ------------------------------------------------------------------
     # Search
