@@ -97,42 +97,31 @@ hiding_spot_fields = {
     "x": int,
     "y": int
 }
-
 def load_level(level_id: int) -> dict:
-        """
-        Loads wall, door, and enemy data from JSON files for a given level ID.
-        Returns a dict compatible with Level._load_level()
-        
-        Expected JSON files:
-        - levels/level_XX_walls.json: Wall geometry
-        - levels/level_XX_doors.json: Door positions and orientations
-        - levels/level_XX_enemies.json: Enemy spawns and patrol points (optional)
-        """
-        def read_json(path):
-            if os.path.exists(path):
-                with open(path, "r") as f:
-                    content = f.read().strip()
-                    return json.loads(content) if content else []
-            return []
+    path = f"levels/level_{level_id:02d}.json"
+    if not os.path.exists(path):
+        print(f"Level file not found: {path}")
+        return {}
+    with open(path, "r") as f:
+        data = json.loads(f.read().strip())
 
-        # Load structural data (walls and doors)
-        walls_raw = read_json(f"levels/level_{level_id:02d}_walls.json")
-        doors_raw = read_json(f"levels/level_{level_id:02d}_doors.json")
-        hiding_spots_raw = read_json(f"levels/level_{level_id:02d}_hiding_spots.json")
-        enemies_raw = read_json(f"levels/level_{level_id:02d}_enemies.json")
+    walls = [(e["x"], e["y"], e["width"], e["height"]) 
+             for e in data.get("walls", [])]
+    doors = [(e["x"], e["y"], e["orientation"]) 
+             for e in data.get("doors", [])]
+    hiding_spots = [(e["x"], e["y"]) 
+                    for e in data.get("hiding_spots", [])]
+    enemies = [(e["position"], e["direction"], e["patrol_points"]) 
+               for e in data.get("enemies", [])]
 
-        walls = [(e["x"], e["y"], e["width"], e["height"]) for e in walls_raw] if walls_raw else []
-        doors = [(e["x"], e["y"], e["orientation"]) for e in doors_raw] if doors_raw else []
-        hiding_spots = [(e["x"], e["y"]) for e in hiding_spots_raw] if hiding_spots_raw else []
-        enemies = [(e["position"], e["direction"], e["patrol_points"]) for e in enemies_raw] if enemies_raw else []
-
-        return {
-            "walls": walls,
-            "doors": doors,
-            "enemies": enemies,
-            "hiding_spots": hiding_spots
-        }
-
+    return {
+        "meta":         data.get("meta", {}),
+        "player":       data.get("player", {"position": [540, 360], "direction": [0, -1]}),
+        "walls":        walls,
+        "doors":        doors,
+        "hiding_spots": hiding_spots,
+        "enemies":      enemies,
+    }
     
 
 
@@ -158,3 +147,24 @@ def draw_debug(surface, data: dict, pos=(10, 10), size=15, colour=(0, 255, 0)):
         y += size + 2
 
 
+def merge_level(level_id): # copied someone else for this, I wanted to migrate existing level data so that I can more easily create new levels.
+    def read(path):
+        if os.path.exists(path):
+            with open(path) as f:
+                return json.load(f)
+        return []
+
+    n = f"{level_id:02d}"
+    merged = {
+        "meta": {"id": level_id, "name": f"Level {n}", "objective": ""},
+        "player": {"position": [90, 500], "direction": [0, -1]},
+        "walls":        read(f"levels/level_{n}_walls.json"),
+        "doors":        read(f"levels/level_{n}_doors.json"),
+        "hiding_spots": read(f"levels/level_{n}_hiding_spots.json"),
+        "enemies":      read(f"levels/level_{n}_enemies.json"),
+    }
+    with open(f"levels/level_{n}.json", "w") as f:
+        json.dump(merged, f, indent=4)
+    print(f"Created levels/level_{n}.json")
+
+merge_level(1)

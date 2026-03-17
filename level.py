@@ -1,4 +1,4 @@
-import pygame, os
+import pygame, os, random
 from player import Player
 from enemy import Enemy
 from settings import settings, BASE_LEVEL_RES
@@ -17,6 +17,8 @@ SUSPICION_THRESHOLD = 50      # must be reached for directable noise to alert
 SUSPICION_CAP = 100.0
 SUSPICION_MULTIPLIER_CAP = 3.0
  # pixel conversion factor for isq in noise propagation.
+
+LEVEL_COLOUR = (40, 40, 40)
 
 class Level:
     def __init__(self, ID, data):
@@ -47,16 +49,17 @@ class Level:
 
         connected = [wp for wp in self.graph.waypoints if wp.neighbours]
         print(f"Waypoints with neighbours: {len(connected)} / {len(self.graph.waypoints)}")
-
+        
         # Open all doors at level start (adds them back to collision once closed).
         for door in self.doors:
             door.interact(self.collision_rects)
 
-        # Player spawns at the centre of the base-res level.
-        self.player = Player(
-            position=pygame.Vector2(BASE_LEVEL_RES[0] // 2, BASE_LEVEL_RES[1] // 2),
-            direction=pygame.Vector2(0, -1),
-        )
+        # migrated player data to level_n.json
+        player_data = data.get("player", {})
+        spawn_pos = pygame.Vector2(player_data.get("position", 
+                           [BASE_LEVEL_RES[0]//2, BASE_LEVEL_RES[1]//2]))
+        spawn_dir = pygame.Vector2(player_data.get("direction", [0, -1]))
+        self.player = Player(position=spawn_pos, direction=spawn_dir)
 
         self.precalculate_patrol_path()
         print(f'{self.graph.scan_rect_count}/{self.graph.fall_back_count}/{self.graph.ultra_fall_back_count}')
@@ -77,6 +80,7 @@ class Level:
         self.handle_interaction()
         self.check_enemy_interactions()
         self.handle_attack()
+        self.handle_enemy_attack()
         self.update_vision_cones(dt)  
         self._process_noise(dt)  
         for enemy in self.enemies:
@@ -89,7 +93,7 @@ class Level:
                 
 
     def draw(self, screen, fps):
-        self.surface.fill((20, 20, 20))
+        self.surface.fill(LEVEL_COLOUR)
 
         for door in self.doors:
             door.draw(self.surface)
@@ -98,9 +102,9 @@ class Level:
         for wp in self.graph.waypoints:
             sx = int(wp.pos.x * settings.scale_total_x)
             sy = int(wp.pos.y * settings.scale_total_y)
-            pygame.draw.rect(self.surface, (255, 255, 0), pygame.Rect(sx, sy, 1, 1))
+            # pygame.draw.rect(self.surface, (255, 255, 0), pygame.Rect(sx, sy, 1, 1)) # debug
 
-        self.draw_enemy_paths()
+        # self.draw_enemy_paths() # debug
         self.draw_noise_circles(self.surface)
 
         for wall in self.walls:
@@ -122,6 +126,7 @@ class Level:
         self.surface.blit(self.cone_surface, (0, 0), special_flags=pygame.BLEND_ADD)
 
         self.draw_icons()
+        self.draw_shots(self.surface)
         
         screen.blit(self.surface, settings.level_offset)
 
@@ -131,12 +136,13 @@ class Level:
             "fps":              round(fps),
             "enemy_states":     [f"{i}:{e.state}"     for i, e in enumerate(self.enemies)],
             "enemy_directions": [f"{i}:{e.direction}" for i, e in enumerate(self.enemies)],
-            "enemy_suspicion": [f"{i}:{e.suspicion}:{e.suspicion_multiplier}" for i, e in enumerate(self.enemies)]
+            "health": self.player.health
         }, size=16)
 
     # ------------------------------------------------------------------
     # Load
     # ------------------------------------------------------------------
+
 
     def _load_level(self, data: dict):
         """All objects are created in BASE coords — no scaling at load time."""
@@ -282,6 +288,14 @@ class Level:
                         self.dead_enemies.append(enemy)
                         self.interactables.append(enemy) # for player interactions
         self.player.attack_signal = False # reset to false after handling loop
+
+    def handle_enemy_attack(self):
+        for enemy in self.enemies:
+            if enemy.shot_target != None:
+                if self.player.rect.collidepoint(enemy.shot_target) and not self.graph.line_blocked(enemy.shot_target, enemy.position):
+                    self.player.health -= 20
+                
+        
 
     # ------------------------------------------------------------------
     # Collision  (everything in BASE coords)
@@ -510,6 +524,13 @@ class Level:
     def draw_noise_circles(self, surface):
         for event in self.events:
             event.draw_noise_circles(surface, DETECTABLE_THRESHOLD, DIRECTABLE_THRESHOLD)
+    
+    def draw_shots(self, surface):
+        for enemy in self.enemies:
+            if enemy.shot_target != None:
+                enemy_screen_pos = settings.to_screen(enemy.position)
+                target_screen_pos = settings.to_screen(enemy.shot_target)
+                pygame.draw.line(surface, (255, 0, 0), enemy_screen_pos, target_screen_pos, 1)
 # ===========================================================================
 # Level objects  —  rects stored in BASE coords, scaled only in draw()
 # ===========================================================================

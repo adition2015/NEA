@@ -1,4 +1,4 @@
-import pygame, math, os
+import pygame, math, random
 from grid_waypoint import *
 from pathfinding import *
 from settings import settings
@@ -33,9 +33,7 @@ class Enemy(pygame.sprite.Sprite):
         self._colour = (240, 10, 20)
         self._icon = None
         self.base_image = self._build_image()
-        # rect tracks BASE coords for collision / LoS polygon test
-        self.rect = self.base_image.get_rect(center=(int(self.position.x),
-                                                      int(self.position.y)))
+        
         self.angle = 0
         self._vision_dirty  = True
         self.vision_points  = []                        # BASE coords
@@ -69,15 +67,21 @@ class Enemy(pygame.sprite.Sprite):
         self.suspicion_multiplier = 1.0
         self.last_heard = NoiseEvent(self.position, 0)
 
+        self.attack_timer = 1.0 # seconds
+        self.shot_target = None
+
     # ------------------------------------------------------------------
     # Visual
     # ------------------------------------------------------------------
 
     def _build_image(self) -> pygame.Surface:
         # Image pixel size is a rendering concern — scale is fine here.
-        size = max(1, int(20 * settings.scale_total_x))
+        self.collision_radius = 10
+        size = max(1, int(self.collision_radius* 2 * settings.scale_total_x))
         surface = pygame.Surface((size, size), pygame.SRCALPHA)
         pygame.draw.circle(surface, self.colour, (size / 2, size / 2), size / 2)
+        self.rect = pygame.Rect(0, 0, self.collision_radius * 2, self.collision_radius * 2)
+        self.rect.center = (int(self.position.x), int(self.position.y))
         if self.icon != None:
             self.icon_surface = pygame.image.load(f"assets/icons/{self.icon}.png")
             self.icon_surface = pygame.transform.scale(self.icon_surface, (size, size))
@@ -134,15 +138,14 @@ class Enemy(pygame.sprite.Sprite):
 
     def transition_chase(self, player_obs: pygame.Vector2):
         self.state = "chase"
-        self.turn_speed = 360
-        self.FOV = 100
         # self.vision_cone_colour = (64, 0, 0)
         self.target_angle = None
         self.player_obs   = player_obs
         self.last_seen    = pygame.Vector2(player_obs)
         self.icon = "exclamation"
 
-    def chase(self):
+    def chase(self, dt):
+        self.shot_target = None
         dist_to_player = self.position.distance_to(self.player_obs)
         min_dist = 30   # base units
         if dist_to_player < min_dist:
@@ -151,6 +154,11 @@ class Enemy(pygame.sprite.Sprite):
         else:
             self.speed = CHASE_SPEED
             self.set_direction(self.player_obs)
+        if self.attack_timer <= 0:
+            self.attack()
+            self.attack_timer = 1.0 # seconds
+        self.attack_timer -= dt
+
 
     # ------------------------------------------------------------------
     # Investigate
@@ -306,6 +314,37 @@ class Enemy(pygame.sprite.Sprite):
             self.set_direction(self.patrol_path[self.patrol_ID])
 
     # ------------------------------------------------------------------
+    # Attack
+    # ------------------------------------------------------------------
+    
+    def attack(self):
+        # called in chase()
+        # measure distance between player and enemy
+        # generate error bar perpendicular to line of sight across player, proportional to distance
+        # measure angle subtended by error bar
+        # pick a random angle to shoot at, level reads this value
+        def get_attack_target(enemy_pos, player_pos, error_per_unit=0.1):
+            to_player = player_pos - enemy_pos
+            distance = to_player.length()
+            
+            # perpendicular to the shot direction
+            perp = pygame.Vector2(-to_player.y, to_player.x).normalize()
+            
+            # error bar half-length grows with distance
+            error = max(5, min(distance * error_per_unit, 80)) 
+            
+            # pick a random point along the bar
+            t = random.uniform(-error, error)
+            return player_pos + perp * t
+        self.shot_target = get_attack_target(self.position, self.player_obs)
+
+        
+
+
+
+
+
+    # ------------------------------------------------------------------
     # Movement helpers
     # ------------------------------------------------------------------
 
@@ -452,7 +491,7 @@ class Enemy(pygame.sprite.Sprite):
             self.patrol()
         elif self.state == "chase":
             self.speed = CHASE_SPEED
-            self.chase()
+            self.chase(dt)
         elif self.state == "search":
             self.speed = SEARCH_SPEED
             self.search()

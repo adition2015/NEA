@@ -31,6 +31,7 @@ class Player(pygame.sprite.Sprite):
         self.health = 100
         self.attack_range = 25 # BASE coords
         self.attack_cooldown = 0.5 # seconds
+        self.dead = False
 
         # --- hiding ---
         self.last_pos = None
@@ -42,9 +43,7 @@ class Player(pygame.sprite.Sprite):
         self._colour = (60, 120, 220)
         self.base_image = self._build_image()
 
-        # rect tracks BASE coords for collision detection
-        self.rect = self.base_image.get_rect(center=(int(self.position.x),
-                                                      int(self.position.y)))
+        
         self.angle = 0
         self.movement_icon_alpha = 255
 
@@ -59,9 +58,12 @@ class Player(pygame.sprite.Sprite):
     def _build_image(self) -> pygame.Surface:
         # Image is built at screen pixel size so it looks correct on the
         # level surface — this is the ONE place scale touches player setup.
-        size = max(1, int(20 * settings.scale_total_x))
+        self.collision_radius = 10
+        size = max(1, int(self.collision_radius * 2 * settings.scale_total_x))
         surface = pygame.Surface((size, size), pygame.SRCALPHA)
         pygame.draw.circle(surface, self.colour, (size // 2, size // 2), size // 2)
+        self.rect = pygame.Rect(0, 0, self.collision_radius * 2, self.collision_radius * 2)
+        self.rect.center = (int(self.position.x), int(self.position.y))
         return surface
 
     def _rotate_to_mouse(self):
@@ -97,7 +99,7 @@ class Player(pygame.sprite.Sprite):
                 self.movement_mode = transitions[0] if event.key == pygame.K_LSHIFT else transitions[1]
             if self.carrying_body and self.movement_mode == 3:
                 self.movement_mode = 2
-                
+    
 
     def move(self, dt: float):
         self.noise_signal = NOISE_LEVELS[self.movement_mode] if self.move_condition else 0
@@ -178,5 +180,8 @@ class Player(pygame.sprite.Sprite):
         surface.blit(rotated, rect)
 
     def update(self, dt: float):
-        self._rotate_to_mouse()
-        self.move(dt)
+        if self.health > 0:
+            self._rotate_to_mouse()
+            self.move(dt)
+        else:
+            self.colour = (20, 20, 20)
