@@ -12,7 +12,8 @@ class Waypoint:
     
 
 class WaypointGraph:
-    def __init__(self, level_res: tuple, collision_rects: list, res: int, buffer: int, door_rects: list):
+    def __init__(self, level_res: tuple, collision_rects: list, res: int, buffer: int, door_rects: list, collision_radius=10):
+        self.collision_radius = collision_radius
         self.res = res
         self.buffer = buffer
         self.collision_rects = collision_rects
@@ -20,7 +21,7 @@ class WaypointGraph:
 
 
         # enemy variables:
-        # enemy size displacement  at base_level
+        # enemy size displacement vector at base_level
         self.sdv= pygame.Vector2()
         
         # initialisation
@@ -94,12 +95,28 @@ class WaypointGraph:
         return neighbours
 
     def line_blocked(self, p1: pygame.Vector2, p2: pygame.Vector2):
-        blocked = False
-        # enemy width = 32 but for extra room, self.sdv accounts for 40:
+        p1 = pygame.Vector2(p1)
+        p2 = pygame.Vector2(p2)
+        diff = p2 - p1
+
+        # Compute perpendicular offset to the travel direction
+        if diff.length() > 0:
+            perp = pygame.Vector2(-diff.y, diff.x).normalize() * self.collision_radius
+        else:
+            perp = pygame.Vector2(0, 0)
+
+        # Cast three parallel rays: left edge, centre, right edge
+        rays = [
+            (p1, p2),
+            (p1 + perp, p2 + perp),
+            (p1 - perp, p2 - perp),
+        ]
+
         for rect in self.collision_rects:
-            if rect.clipline(p1 - self.sdv, p2 - self.sdv) or rect.clipline(p1 + self.sdv, p2 + self.sdv): # blocks if enemy at centre of one waypoint is obstructed at all.
-                blocked = True
-        return blocked
+            for ray_start, ray_end in rays:
+                if rect.clipline(ray_start, ray_end):
+                    return True
+        return False
 
     def nearest_waypoint(self, pt):
         x, y = pt

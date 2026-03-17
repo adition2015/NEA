@@ -53,10 +53,10 @@ class Settings:
     def scale_rect(self, rect: pygame.Rect) -> pygame.Rect:
         """Base-res Rect  →  level-surface pixel Rect."""
         return pygame.Rect(
-            rect.x      * self.scale_total_x,
-            rect.y      * self.scale_total_y,
-            rect.width  * self.scale_total_x,
-            rect.height * self.scale_total_y,
+            round(rect.x      * self.scale_total_x),
+            round(rect.y      * self.scale_total_y),
+            round(rect.width  * self.scale_total_x),
+            round(rect.height * self.scale_total_y,)
         )
 
     def from_screen(self, screen_pos) -> pygame.Vector2:

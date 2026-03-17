@@ -26,6 +26,7 @@ class Player(pygame.sprite.Sprite):
         self.speed_mult = 1
         self.speed = 0
 
+
         # --- combat ---
         self.health = 100
         self.attack_range = 25 # BASE coords

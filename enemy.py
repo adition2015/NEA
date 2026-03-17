@@ -47,9 +47,9 @@ class Enemy(pygame.sprite.Sprite):
 
 
         # vision — all distances in base units
-        self.FOV           = 100
+        self.FOV           = 60
         self.cone_res      = 0.5
-        self.view_distance = 200        # base units
+        self.view_distance = 400        # base units
 
         self.turn_speed = 360           # degrees / second
 
@@ -136,7 +136,7 @@ class Enemy(pygame.sprite.Sprite):
         self.state = "chase"
         self.turn_speed = 360
         self.FOV = 100
-        self.vision_cone_colour = (64, 0, 0)
+        # self.vision_cone_colour = (64, 0, 0)
         self.target_angle = None
         self.player_obs   = player_obs
         self.last_seen    = pygame.Vector2(player_obs)
@@ -162,7 +162,7 @@ class Enemy(pygame.sprite.Sprite):
         self.last_heard = noise
         self.state = "investigate"
         self.investigation_timer = 10 # seconds
-        self.vision_cone_colour = (64, 32, 0)
+        # self.vision_cone_colour = (64, 32, 0)
         self.set_direction(self.last_heard.position)
     
     def investigate(self, dt):
@@ -181,7 +181,7 @@ class Enemy(pygame.sprite.Sprite):
         if self.state == "alerted" and noise.intensity < self.last_heard.intensity:
             return
         self.state = "alerted"
-        self.vision_cone_colour = (64, 0, 0)
+        # self.vision_cone_colour = (64, 0, 0)
         self.alerted_id = 0 
         self.alerted_path = alerted_path or []
     
@@ -209,7 +209,7 @@ class Enemy(pygame.sprite.Sprite):
             return
         self.state = "search"
         self.icon = "question"
-        self.vision_cone_colour = (64, 32, 0)
+        # self.vision_cone_colour = (64, 32, 0)
         self.target_angle = None
         self.player_obs   = None
         self.search_path  = search_path or []
@@ -264,7 +264,7 @@ class Enemy(pygame.sprite.Sprite):
         if self.state != "returning_to_patrol":
             self.state = "returning_to_patrol"
             self.icon = None
-            self.vision_cone_colour = (64, 64, 0)
+            # self.vision_cone_colour = (64, 64, 0)
             self.target_angle = None
             self.player_obs   = None
             self.return_path  = []
@@ -287,7 +287,7 @@ class Enemy(pygame.sprite.Sprite):
 
     def transition_patrol(self):
         self.state = "patrol"
-        self.vision_cone_colour = (64, 64, 0)
+        # self.vision_cone_colour = (64, 64, 0)
         self.icon = None
         self.target_angle = None
         self.player_obs   = None
@@ -394,6 +394,19 @@ class Enemy(pygame.sprite.Sprite):
                 if distance(self.rect.center, clipped[0]) < distance(self.rect.center, hit_point):
                     hit_point = clipped[0]
         return hit_point
+    
+    def get_vision_cone_colour(self): # replaces hard-coded vision cone colours, and adds suspicion meter.
+        if self.state in ("chase", "alerted"):
+            return (64, 0, 0)
+        if self.state in ("search", "investigate"):
+            return (64, 32, 0)
+        
+        # patrol/returning — interpolate yellow → orange as suspicion rises
+        t = self.suspicion / SUSPICION_CAP  # 0.0 → 1.0
+        r = int(64)
+        g = int(64 * (1 - t))  # fades from 64 → 0
+        b = 0
+        return (r, g, b)
 
     # draw_vision_cone is intentionally removed from Enemy.
     # Level.draw_vision_cones() handles scaling + blending centrally.

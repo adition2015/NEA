@@ -337,8 +337,9 @@ class Level:
                         enemy.last_heard = target
                         alerted_path = self._compute_alerted_path(enemy)
                         enemy.transition_alerted(target, alerted_path)
-            elif target.intensity > DETECTABLE_THRESHOLD:
-                enemy.transition_investigate(target)
+            elif target.intensity > DETECTABLE_THRESHOLD and enemy.state != "alerted":
+                if not self.graph.line_blocked(target.position, enemy.position): # if the sound is blocked, investigation is not conducted.
+                    enemy.transition_investigate(target)
                         
 
     def update_suspicion(self, enemy, intensity, dt):
@@ -422,8 +423,9 @@ class Level:
                     (p[0] * settings.scale_total_x, p[1] * settings.scale_total_y)
                     for p in enemy.vision_points
                 ]
+                colour = enemy.get_vision_cone_colour()
                 self.cone_temp.fill((0, 0, 0))
-                pygame.draw.polygon(self.cone_temp, enemy.vision_cone_colour, scaled)
+                pygame.draw.polygon(self.cone_temp, colour, scaled)
                 self.cone_surface.blit(self.cone_temp, (0, 0),
                                        special_flags=pygame.BLEND_ADD)
 
