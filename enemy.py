@@ -2,6 +2,7 @@ import pygame, math, os
 from grid_waypoint import *
 from pathfinding import *
 from settings import settings
+from noise import NoiseEvent
 
 
 # All speeds are in base units per second (base res = 1080×720).
@@ -9,7 +10,7 @@ PATROL_SPEED        = 50
 CHASE_SPEED         = 100
 SEARCH_SPEED        = 75
 RETURN_SPEED        = 50
-
+INVESTIGATE_SPEED   = 30
 
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, position: tuple, direction: tuple, patrol_points: list):
@@ -55,13 +56,14 @@ class Enemy(pygame.sprite.Sprite):
         self.move_condition = True
         self.patrol_ID = 0
 
-        self.search_path = []
-        self.search_id   = 0
-        self.return_path = []
-        self.return_id   = 0
-
+        self.search_path  = []
+        self.search_id    = 0
+        self.return_path  = []
+        self.return_id    = 0
+        self.alerted_path = []
+        self.alerted_id   = 0
         self.suspicion = 0.0
-        self.last_heard = None
+        self.last_heard = NoiseEvent(self.position, 0)
 
     # ------------------------------------------------------------------
     # Visual
@@ -128,6 +130,8 @@ class Enemy(pygame.sprite.Sprite):
 
     def transition_chase(self, player_obs: pygame.Vector2):
         self.state = "chase"
+        self.turn_speed = 360
+        self.FOV = 100
         self.vision_cone_colour = (64, 0, 0)
         self.target_angle = None
         self.player_obs   = player_obs
@@ -148,8 +152,50 @@ class Enemy(pygame.sprite.Sprite):
     # Investigate
     # ------------------------------------------------------------------
 
-    def transition_investigate(self, last_heard):
-        pass
+    def transition_investigate(self, noise):
+        if self.state == "investigate":
+            return
+        self.last_heard = noise
+        self.state = "investigate"
+        self.FOV = 150 # more vigilant
+        self.turn_speed = 90
+        self.investigation_timer = 10 # seconds
+        self.vision_cone_colour = (64, 32, 0)
+        self.set_direction(self.last_heard.position)
+    
+    def investigate(self, dt):
+        if self.investigation_timer < 0:
+            self.transition_scout()
+        
+        self.investigation_timer -= dt    
+    
+    # ------------------------------------------------------------------
+    # Alerted
+    # ------------------------------------------------------------------
+
+    def transition_alerted(self, noise, alerted_path: list):
+        if self.state == "alerted" and noise.intensity < self.last_heard.intensity:
+            return
+        self.state = "alerted"
+        self.FOV = 150
+        self.vision_cone_colour = (64, 0, 0)
+        self.alerted_id = 0 
+        self.alerted_path = alerted_path or []
+    
+    def alerted(self):
+        if not self.alerted_path:
+            self.transition_returning_to_patrol() # could be mid investigation
+            return
+        target = self.alerted_path[self.alerted_id]
+        self.set_direction(target)
+
+        if self.position.distance_to(target) < 5:
+            self.alerted_id += 1
+            if self.alerted_id >= len(self.alerted_path):
+                self.transition_scout() # easy return to patrol
+                return
+            self.set_direction(self.alerted_path[self.alerted_id])
+
 
     # ------------------------------------------------------------------
     # Search
@@ -160,6 +206,8 @@ class Enemy(pygame.sprite.Sprite):
             return
         self.state = "search"
         self.icon = "question"
+        self.FOV = 100
+        self.turn_speed = 360
         self.vision_cone_colour = (64, 32, 0)
         self.target_angle = None
         self.player_obs   = None
@@ -194,7 +242,8 @@ class Enemy(pygame.sprite.Sprite):
             self.scout_id    = 0
             self.search_path = []
             self.search_id   = 0
-
+            self.alerted     = []
+            self.alerted_id  = 0
     def scout(self):
         if self.scout_id >= len(self.scout_angles) or self.state != "scout":
             self.target_angle = None
@@ -213,6 +262,8 @@ class Enemy(pygame.sprite.Sprite):
         if self.state != "returning_to_patrol":
             self.state = "returning_to_patrol"
             self.icon = None
+            self.FOV = 100
+            self.turn_speed = 360
             self.vision_cone_colour = (64, 64, 0)
             self.target_angle = None
             self.player_obs   = None
@@ -398,6 +449,11 @@ class Enemy(pygame.sprite.Sprite):
         elif self.state == "scout":
             self.speed = 0
             self.scout()
+        elif self.state == "investigate":
+            self.speed = INVESTIGATE_SPEED
+            self.investigate(dt)
+        elif self.state == "alerted":
+            self.speed = CHASE_SPEED
         if self.state != "dead": 
             self.move(dt, self.target_angle)
             self.update_vision()

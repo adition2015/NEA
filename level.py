@@ -10,6 +10,7 @@ DETECTABLE_THRESHOLD = 50
 DIRECTABLE_THRESHOLD = 100
 SUSPICION_CONVERSION_CONSTANT = 0.5
 SUSPICION_DECAY_CONSTANT = 1
+PCF = 500 # pixel conversion factor for isq in noise propagation.
 
 class Level:
     def __init__(self, ID, data):
@@ -94,6 +95,7 @@ class Level:
             pygame.draw.rect(self.surface, (255, 255, 0), pygame.Rect(sx, sy, 1, 1))
 
         self.draw_enemy_paths()
+        self.draw_noise_circles(self.surface)
 
         for wall in self.walls:
             wall.draw(self.surface)
@@ -114,6 +116,7 @@ class Level:
         self.surface.blit(self.cone_surface, (0, 0), special_flags=pygame.BLEND_ADD)
 
         self.draw_icons()
+        
         screen.blit(self.surface, settings.level_offset)
 
         draw_debug(screen, {
@@ -304,25 +307,32 @@ class Level:
     # ------------------------------------------------------------------
     def _process_noise(self):
         from noise import NoiseEvent
-        events = []
+        self.events = [] # there would only be one player event per frame so this logic
         
 
         if self.player.noise_signal > 0:
-            events.append(NoiseEvent(self.player.position, self.player.noise_signal))
+            self.events.append(NoiseEvent(self.player.position, self.player.noise_signal))
         
         for enemy in self.enemies:
             candidate_noise = [] # will be noise objects
-            for event in events:
-                distance_sq = enemy.position.distance_squared_to(event.position)
+            target = None
+            for event in self.events:
+                distance_sq = enemy.position.distance_squared_to(event.position) / (PCF**2)
                 perceived = event.intensity / distance_sq
-                candidate_noise += NoiseEvent(event.position, perceived)
-            target = max(candidate_noise, key = lambda noise: noise.intensity)
-            if target.intensity > DETECTABLE_THRESHOLD:
-                if target.intensity > DIRECTABLE_THRESHOLD and enemy.last_heard < target.intensity:
-                    enemy.transition_alert(target.position)
-                else:
-                    enemy.transition_investigate()
-                
+                candidate_noise.append(NoiseEvent(event.position, perceived))
+            if candidate_noise:
+                target = max(candidate_noise, key = lambda noise: noise.intensity)
+            if target != None:
+                if target.intensity > DETECTABLE_THRESHOLD:
+                    if target.intensity > DIRECTABLE_THRESHOLD:    
+                        if enemy.last_heard.intensity < target.intensity:
+                            enemy.last_heard = target
+                            alerted_path = self._compute_alerted_path(enemy)
+                            enemy.transition_alerted(target, alerted_path)
+                    else:
+                        enemy.last_heard = target
+                        enemy.transition_investigate(target)
+                    
 
     def update_suspicion(self, enemy, intensity):
         pass
@@ -412,11 +422,11 @@ class Level:
         path = a_star(start_wp, end_wp)
         return path if path != None else []   # list[Vector2] in BASE coords
     
-    def _compute_investigate_path(self, enemy) -> list:
+    def _compute_alerted_path(self, enemy) -> list:
         if enemy.last_heard is None:
             return []
         start_wp = self.graph.nearest_waypoint(enemy.position)
-        end_wp  = self.graph.nearest_waypoint(enemy.last_heard)
+        end_wp  = self.graph.nearest_waypoint(enemy.last_heard.position)
         path = a_star(start_wp, end_wp)
         return path if path != None else []
 
@@ -460,6 +470,13 @@ class Level:
                 pygame.draw.lines(self.surface, (0, 0, 255), False, pts, 3)
                 for p in pts:
                     pygame.draw.circle(self.surface, (0, 0, 255), p, 4)
+            
+            if len(enemy.alerted_path) > 1:
+                pts = _scaled_pts(enemy.alerted_path)
+                pygame.draw.lines(self.surface, (255, 0, 255), False, pts, 3)
+                for p in pts:
+                    pygame.draw.circle(self.surface, (255, 0, 255), p, 4)
+            
 
     def draw_icons(self):
         player_states = ["sneak", "walk", "run"]
@@ -471,7 +488,9 @@ class Level:
         self.surface.blit(icon, (settings.true_level_res[0] - icon.get_width() * 1.5,
                                   icon.get_height() * 0.5))
 
-
+    def draw_noise_circles(self, surface):
+        for event in self.events:
+            event.draw_noise_circles(surface, PCF, DETECTABLE_THRESHOLD, DIRECTABLE_THRESHOLD, settings.scale_diagonal)
 # ===========================================================================
 # Level objects  —  rects stored in BASE coords, scaled only in draw()
 # ===========================================================================
