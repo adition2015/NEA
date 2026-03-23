@@ -127,12 +127,12 @@ class WaypointGraph:
         if candidates:
             self.scan_rect_count += 1
             n_wp = min(candidates, key = lambda wp: wp.pos.distance_to(pt_vec))
-            print(f'{pt_vec}:{n_wp.pos}')
+            #print(f'{pt_vec}:{n_wp.pos}')
             return n_wp
         self.ultra_fall_back_count += 1
         # Last resort: closest by distance if nothing has LoS (shouldn't normally happen)
         n_wp = min(self.waypoints, key=lambda wp: wp.pos.distance_to(pt_vec))
-        print(f'Last Resort: {pt_vec}:{n_wp.pos}')
+        #print(f'Last Resort: {pt_vec}:{n_wp.pos}')
         return n_wp
             
         

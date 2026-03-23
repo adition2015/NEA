@@ -184,4 +184,5 @@ class Player(pygame.sprite.Sprite):
             self._rotate_to_mouse()
             self.move(dt)
         else:
+            self.dead = True
             self.colour = (20, 20, 20)

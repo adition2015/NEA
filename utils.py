@@ -167,4 +167,3 @@ def merge_level(level_id): # copied someone else for this, I wanted to migrate e
         json.dump(merged, f, indent=4)
     print(f"Created levels/level_{n}.json")
 
-merge_level(1)

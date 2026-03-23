@@ -1,16 +1,15 @@
 import pygame
 from level import Level, Wall
+from menus import Menus, PopUpMenu
 from settings import settings
 from utils import *
 
 class GameStateManager:
     def __init__(self): # initialises full game
+        self._game_state = None
         self.init_pygame()
         self.init_window()
         self.init_game_state()
-        
-        if self.game_state == "playing":
-            self.init_load_level()
 
     # initialisation functions
     def init_pygame(self):
@@ -24,29 +23,60 @@ class GameStateManager:
     def init_game_state(self):
         self.running = True
         self.paused = False
-        self.game_state = "playing"
+        self.game_state = "menus"
+
+    def load_state(self):
+        if self.game_state == "playing":
+            self.init_load_level()
+        elif self.game_state == "menus":
+            self.init_menus()
+        elif self.game_state == "failed" or self.game_state == "completed":
+            self.init_pop_up_menu()
+
+
+    @property
+    def game_state(self):
+        return self._game_state
+    
+    @game_state.setter
+    def game_state(self, value):
+        self._game_state = value
+        self.load_state()
 
 
     # runtime functions
     def run(self):
         while self.running:
-            self.game_state = "playing" if not self.paused else "paused"
             dt = self.clock.tick(settings.FPS) / 1000 
             fps = self.clock.get_fps()   
             self.handle_events()
             self.update(dt)
             self.draw(fps)
-          
+   
 
-    def update(self, dt):
+    def update(self, dt): 
         if self.game_state == "playing":
             self.level.update(dt)
+            if self.level.level_failed:
+                self.menus.pop_up_menu = "failed"
+            if self.level.level_completed:
+                self.menus.pop_up_menu = "completed"
+        if self.game_state == "menus":
+            self.menus.update(dt)
+            if self.menus.state == "play":
+                self.game_state = "playing"
+        
 
     def draw(self, fps):
+        self.screen.fill((0, 0, 0))
         if self.game_state == "playing":
-            self.screen.fill((0, 0, 0))
             self.level.draw(self.screen, fps)
-            pygame.display.flip()
+        elif self.game_state == "menus":
+            self.menus.draw(self.screen)
+            
+        pygame.display.flip()
+            
+
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -55,9 +85,11 @@ class GameStateManager:
             # -- temp -- 
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 self.running = False
-            elif event.type == pygame.KEYDOWN and event.key == pygame.K_p:
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_p and self.game_state in ("playing", "paused"):
                 self.paused = not self.paused
-            
+                self.game_state = "playing" if not self.paused else "paused"
+            elif event.type == pygame.MOUSEBUTTONDOWN and pygame.mouse.get_pressed()[0]:
+                self.menus.click_signal = True
             if self.game_state == "playing":
                 self.level.handle_input(event) # handle level input
             
@@ -65,5 +97,12 @@ class GameStateManager:
         # test level
         data = load_level(1)
         self.level = Level(1, data)
+
+    def init_menus(self):
+        self.menus = Menus()
+
+    def init_pop_up_menu(self):
+        self.pop_up_menu = PopUpMenu(self.game_state)
+    
         
 

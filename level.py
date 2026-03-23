@@ -69,28 +69,38 @@ class Level:
         self.cone_update_interval = 50   # ms between cone redraws
         self.cone_timer   = 0
 
+        self.noise_events = []
+
+        self.level_failed = False
+        self.level_completed = False
+
     # ------------------------------------------------------------------
     # Core loop
     # ------------------------------------------------------------------
 
     def update(self, dt):
-        self.cone_timer += dt * 1000
-        self.player.update(dt)
-        self._resolve_collisions()
-        self.handle_interaction()
-        self.check_enemy_interactions()
-        self.handle_attack()
-        self.handle_enemy_attack()
-        self.update_vision_cones(dt)  
-        self._process_noise(dt)  
-        for enemy in self.enemies:
-            enemy.update(dt)
-        for dead_enemy in self.dead_enemies:
-            dead_enemy.update(dt)
-            if dead_enemy.carried:
-                dead_enemy.position = pygame.Vector2(self.player.position)
-                dead_enemy.rect.center = (int(dead_enemy.position.x), int(dead_enemy.position.y))
-                
+        if not self.player.dead:
+            self.cone_timer += dt * 1000
+            self.player.update(dt)
+            self._resolve_collisions()
+            self.handle_interaction()
+            self.check_enemy_interactions()
+            self.handle_attack()
+            self.handle_enemy_attack()
+            self.update_vision_cones(dt)  
+            self._process_noise(dt)  
+            for enemy in self.enemies:
+                enemy.update(dt)
+            for dead_enemy in self.dead_enemies:
+                dead_enemy.update(dt)
+                if dead_enemy.carried:
+                    dead_enemy.position = pygame.Vector2(self.player.position)
+                    dead_enemy.rect.center = (int(dead_enemy.position.x), int(dead_enemy.position.y))
+            if self.dead_enemies and not self.enemies:
+                self.level_completed = True
+        else:
+            self.level_failed = True
+                    
 
     def draw(self, screen, fps):
         self.surface.fill(LEVEL_COLOUR)
@@ -327,13 +337,13 @@ class Level:
     # Noise Processing
     # ------------------------------------------------------------------
     def _process_noise(self, dt):
-        self.events = []
+        self.noise_events = []
         if self.player.noise_signal > 0:
-            self.events.append(NoiseEvent(self.player.position, self.player.noise_signal))
+            self.noise_events.append(NoiseEvent(self.player.position, self.player.noise_signal))
 
         for enemy in self.enemies:
             candidate_noise = []
-            for event in self.events:
+            for event in self.noise_events:
                 distance_sq = enemy.position.distance_squared_to(event.position)
                 perceived = float('inf') if distance_sq == 0 else event.intensity / distance_sq
                 candidate_noise.append(NoiseEvent(event.position, perceived))
@@ -522,7 +532,7 @@ class Level:
                                   icon.get_height() * 0.5))
 
     def draw_noise_circles(self, surface):
-        for event in self.events:
+        for event in self.noise_events:
             event.draw_noise_circles(surface, DETECTABLE_THRESHOLD, DIRECTABLE_THRESHOLD)
     
     def draw_shots(self, surface):
@@ -586,9 +596,3 @@ class HidingSpot:
 
     def interact(self):
         self.in_use = not self.in_use
-
-        
-
-
-
-    

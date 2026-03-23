@@ -20,8 +20,6 @@ class Settings:
     def calc_level_res(self):
         self.level_res = level_res(self.levelScalar, (DEF_WIDTH, DEF_HEIGHT))
         self.level_offset = level_offset(self.levelScalar, (DEF_WIDTH, DEF_HEIGHT))
-        self.scale_x = self.level_res[0] / BASE_LEVEL_RES[0]
-        self.scale_y = self.level_res[1] / BASE_LEVEL_RES[1]
         self.true_level_res = level_res(self.levelScalar, self.res)
 
         import math
@@ -34,11 +32,18 @@ class Settings:
 
         print(f"scale_x: {self.scale_total_x}, scale_y: {self.scale_total_y}, scale_diagonal: {self.scale_diagonal}")
 
+
+    def calc_true_res(self):
+        self.scale_true_x = self.res[0] / BASE_LEVEL_RES[0]
+        self.scale_true_y = self.res[1] / BASE_LEVEL_RES[1]
+
+
     def init_resolution(self):
         if self.is_fullscreen:
             self.flags = pygame.FULLSCREEN
             self.res = pygame.display.get_desktop_sizes()[0]
         self.calc_level_res()
+        self.calc_true_res()
 
     # ------------------------------------------------------------------
     # Render helpers  (base coords  ↔  level-surface pixel coords)
@@ -49,6 +54,11 @@ class Settings:
         """Base-res position  →  level-surface pixel coords."""
         return pygame.Vector2(pos[0] * self.scale_total_x,
                               pos[1] * self.scale_total_y)
+
+    def to_true_screen(self, pos):
+        """Base-res position  →  level-surface pixel coords."""
+        return pygame.Vector2(pos[0] * self.scale_true_x,
+                              pos[1] * self.scale_true_y)
 
     def scale_rect(self, rect: pygame.Rect) -> pygame.Rect:
         """Base-res Rect  →  level-surface pixel Rect."""
