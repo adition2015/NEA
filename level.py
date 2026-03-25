@@ -138,7 +138,7 @@ class Level:
         self.draw_icons()
         self.draw_shots(self.surface)
         
-        screen.blit(self.surface, settings.level_offset)
+        screen.blit(self.surface, settings.true_level_offset)
 
         draw_debug(screen, {
             "cursor_pos":       self.relative_cursor_pos(),

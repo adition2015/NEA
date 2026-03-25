@@ -21,6 +21,7 @@ class Settings:
         self.level_res = level_res(self.levelScalar, (DEF_WIDTH, DEF_HEIGHT))
         self.level_offset = level_offset(self.levelScalar, (DEF_WIDTH, DEF_HEIGHT))
         self.true_level_res = level_res(self.levelScalar, self.res)
+        self.true_level_offset = level_offset(self.levelScalar, self.res)
 
         import math
         base_diagonal = math.sqrt(BASE_LEVEL_RES[0]**2 + BASE_LEVEL_RES[1]**2)
@@ -39,6 +40,7 @@ class Settings:
 
 
     def init_resolution(self):
+        self.res = (self.width, self.height)
         if self.is_fullscreen:
             self.flags = pygame.FULLSCREEN
             self.res = pygame.display.get_desktop_sizes()[0]

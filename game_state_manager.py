@@ -1,6 +1,6 @@
 import pygame
 from level import Level, Wall
-from menus import Menus, PopUpMenu
+from menus import *
 from settings import settings
 from utils import *
 
@@ -27,7 +27,8 @@ class GameStateManager:
 
     def load_state(self):
         if self.game_state == "playing":
-            self.init_load_level()
+            if not hasattr(self, 'level') or self.level is None:  # <-- guard
+                self.init_load_level()
         elif self.game_state == "menus":
             self.init_menus()
         elif self.game_state == "failed" or self.game_state == "completed":
@@ -54,28 +55,42 @@ class GameStateManager:
             self.draw(fps)
    
 
-    def update(self, dt): 
+    def draw(self, fps):
+        self.screen.fill((0, 0, 0))
+        if self.game_state in ("playing", "paused"):
+            self.level.draw(self.screen, fps)   # game renders first
+        if self.game_state in ("playing", "paused", "menus"):
+            self.menus.draw(self.screen)        # pop-ups sit on top of whatever is there
+        pygame.display.flip()
+
+    def update(self, dt):
         if self.game_state == "playing":
             self.level.update(dt)
             if self.level.level_failed:
-                self.menus.pop_up_menu = "failed"
+                self.menus.show_popup(LevelMenu("failed"))
             if self.level.level_completed:
-                self.menus.pop_up_menu = "completed"
-        if self.game_state == "menus":
-            self.menus.update(dt)
-            if self.menus.state == "play":
-                self.game_state = "playing"
-        
+                self.menus.show_popup(LevelMenu("completed"))
 
-    def draw(self, fps):
-        self.screen.fill((0, 0, 0))
-        if self.game_state == "playing":
-            self.level.draw(self.screen, fps)
-        elif self.game_state == "menus":
-            self.menus.draw(self.screen)
-            
-        pygame.display.flip()
-            
+        self.menus.update(dt)
+        if self.menus.transition:
+            self._handle_menu_transition(self.menus.transition)
+            self.menus.transition = None
+
+    def _handle_menu_transition(self, t: str):
+        if t == "playing":
+            self.game_state = "playing"
+            self.init_load_level()
+            self.menus.static_menu = None
+        elif t == "resume":
+            self.paused = not self.paused
+            self.game_state = "playing" # pop-up already dismissed by Menus
+        elif t == "retry":
+            self.level = None          # force reload on retry
+            self.game_state = "playing"
+        elif t == "menus":
+            self.game_state = "menus"
+            self.menus.go_to(StartMenu())
+                
 
 
     def handle_events(self):
@@ -87,7 +102,12 @@ class GameStateManager:
                 self.running = False
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_p and self.game_state in ("playing", "paused"):
                 self.paused = not self.paused
-                self.game_state = "playing" if not self.paused else "paused"
+                if self.paused:
+                    self.game_state = "paused"
+                    self.menus.show_popup(PauseMenu())   # <-- actually create the popup
+                else:
+                    self.game_state = "playing"
+                    self.menus.dismiss_popup()
             elif event.type == pygame.MOUSEBUTTONDOWN and pygame.mouse.get_pressed()[0]:
                 self.menus.click_signal = True
             if self.game_state == "playing":
