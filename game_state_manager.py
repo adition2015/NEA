@@ -57,10 +57,15 @@ class GameStateManager:
 
     def draw(self, fps):
         self.screen.fill((0, 0, 0))
+        
+
         if self.game_state in ("playing", "paused"):
             self.level.draw(self.screen, fps)   # game renders first
         if self.game_state in ("playing", "paused", "menus"):
             self.menus.draw(self.screen)        # pop-ups sit on top of whatever is there
+        draw_debug(self.screen, {
+            "FPS": f'{round(fps)}'
+        })
         pygame.display.flip()
 
     def update(self, dt):

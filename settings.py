@@ -4,7 +4,7 @@ from utils import *
 # --- default window settings ---
 DEF_WIDTH, DEF_HEIGHT = 1200, 800
 BASE_LEVEL_RES = (1080, 720)
-
+MIN_MARGIN = 40  # minimum gap from any window edge, in screen pixels
 
 # --- settings class ---
 
@@ -17,21 +17,29 @@ class Settings:
         self.FPS = 120
         self.flags = 0
 
-    def calc_level_res(self):
-        self.level_res = level_res(self.levelScalar, (DEF_WIDTH, DEF_HEIGHT))
-        self.level_offset = level_offset(self.levelScalar, (DEF_WIDTH, DEF_HEIGHT))
-        self.true_level_res = level_res(self.levelScalar, self.res)
-        self.true_level_offset = level_offset(self.levelScalar, self.res)
+    def calc_level_res(self): # Changed so that aspect ratio of level is constant across all resolutions.
+        # Maximum usable area after subtracting margins on both sides
+        available_w = self.res[0] - 2 * MIN_MARGIN
+        available_h = self.res[1] - 2 * MIN_MARGIN
 
-        import math
-        base_diagonal = math.sqrt(BASE_LEVEL_RES[0]**2 + BASE_LEVEL_RES[1]**2)
-        current_diagonal = math.sqrt(self.true_level_res[0]**2 + self.true_level_res[1]**2)
-        self.scale_diagonal = current_diagonal / base_diagonal
+        # Uniform scale: whichever axis is tighter wins.
+        # This preserves the BASE_LEVEL_RES aspect ratio exactly.
+        scale = min(available_w / BASE_LEVEL_RES[0],
+                    available_h / BASE_LEVEL_RES[1])
 
-        self.scale_total_x = self.true_level_res[0] / BASE_LEVEL_RES[0]
-        self.scale_total_y = self.true_level_res[1] / BASE_LEVEL_RES[1]
+        level_w = BASE_LEVEL_RES[0] * scale
+        level_h = BASE_LEVEL_RES[1] * scale
 
-        print(f"scale_x: {self.scale_total_x}, scale_y: {self.scale_total_y}, scale_diagonal: {self.scale_diagonal}")
+        # Centre the level in the window
+        offset_x = (self.res[0] - level_w) / 2
+        offset_y = (self.res[1] - level_h) / 2
+
+        self.true_level_res    = (int(level_w), int(level_h))
+        self.true_level_offset = (int(offset_x), int(offset_y))
+
+        # Keep the existing names that the rest of the code uses
+        self.scale_total_x = scale
+        self.scale_total_y = scale  # same value — no stretching
 
 
     def calc_true_res(self):

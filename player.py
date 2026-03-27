@@ -69,7 +69,7 @@ class Player(pygame.sprite.Sprite):
     def _rotate_to_mouse(self):
         # mouse → screen → level surface → base coords
         mouse_screen = pygame.Vector2(pygame.mouse.get_pos())
-        mouse_level  = mouse_screen - pygame.Vector2(settings.level_offset)
+        mouse_level  = mouse_screen - pygame.Vector2(settings.true_level_offset)
         mouse_base   = settings.from_screen(mouse_level)
 
         diff = mouse_base - self.position

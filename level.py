@@ -135,19 +135,12 @@ class Level:
             self.cone_timer = 0
         self.surface.blit(self.cone_surface, (0, 0), special_flags=pygame.BLEND_ADD)
 
-        self.draw_icons()
+        self.draw_icons() 
         self.draw_shots(self.surface)
-        
-        screen.blit(self.surface, settings.true_level_offset)
-
         draw_debug(screen, {
-            "cursor_pos":       self.relative_cursor_pos(),
-            "movement_mode":    self.player.movement_mode,
-            "fps":              round(fps),
-            "enemy_states":     [f"{i}:{e.state}"     for i, e in enumerate(self.enemies)],
-            "enemy_directions": [f"{i}:{e.direction}" for i, e in enumerate(self.enemies)],
-            "health": self.player.health
-        }, size=16)
+            "Level":f'{self.ID}'
+        }, pos=(settings.res[0] // 2 - 60, 10))
+        screen.blit(self.surface, settings.true_level_offset)
 
     # ------------------------------------------------------------------
     # Load
@@ -525,7 +518,7 @@ class Level:
         player_states = ["sneak", "walk", "run"]
         state = player_states[self.player.movement_mode - 1]
         icon = pygame.image.load(os.path.join("assets", "icons", f"{state}.png")).convert_alpha()
-        icon = pygame.transform.scale(icon, (32, 32))
+        icon = pygame.transform.scale(icon, settings.to_screen((32, 32)))
         self.player.movement_icon_alpha = (self.player.movement_icon_alpha - 5) % 255
         icon.set_alpha(self.player.movement_icon_alpha)
         self.surface.blit(icon, (settings.true_level_res[0] - icon.get_width() * 1.5,
