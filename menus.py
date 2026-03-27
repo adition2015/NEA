@@ -186,6 +186,15 @@ class SettingsMenu(StaticMenu):
         (480, 720)
     ]
 
+    FPS_OPTIONS = [
+        240,
+        180,
+        144,
+        120,
+        60,
+        30
+    ]
+
     def _build(self):
         self.title_font  = pygame.font.SysFont("monospace", 28)
         self.label_font  = pygame.font.SysFont("monospace", 18)
@@ -193,15 +202,23 @@ class SettingsMenu(StaticMenu):
 
         # Staged (not yet applied) values — start from current settings
         self._staged_res_index  = self._current_res_index()
+        self._staged_fps_index  = self._current_fps_index()
         self._staged_fullscreen = settings.is_fullscreen
+        self._staged_fps = settings.FPS
 
         cx = settings.res[0] // 2
+        btn_w = 36
 
         # Resolution row
         self._res_y = settings.res[1] // 2 - 60
-        btn_w = 36
         self.buttons["res_prev"] = pygame.Rect(cx - 170, self._res_y - 14, btn_w, 30)
         self.buttons["res_next"] = pygame.Rect(cx + 134, self._res_y - 14, btn_w, 30)
+        
+        # FPS row
+        self._fps_y = settings.res[1] // 2 + 60
+        self.buttons["fps_prev"] = pygame.Rect(cx - 170, self._fps_y - 14, btn_w, 30)
+        self.buttons["fps_next"] = pygame.Rect(cx + 134, self._fps_y - 14, btn_w, 30)
+
 
         # Fullscreen toggle row
         self._fs_y = self._res_y + 60
@@ -222,6 +239,12 @@ class SettingsMenu(StaticMenu):
             return self.RESOLUTIONS.index(current)
         return 0
 
+    def _current_fps_index(self) -> int:
+        current = settings.FPS
+        if current in self.FPS_OPTIONS:
+            return self.FPS_OPTIONS.index(current)
+        return 0
+
     def update(self, dt):
         if self.click_signal:
             for id, rect in self.buttons.items():
@@ -234,6 +257,10 @@ class SettingsMenu(StaticMenu):
             self._staged_res_index = (self._staged_res_index - 1) % len(self.RESOLUTIONS)
         elif id == "res_next":
             self._staged_res_index = (self._staged_res_index + 1) % len(self.RESOLUTIONS)
+        elif id == "fps_prev":
+            self._staged_fps_index = (self._staged_fps_index - 1) % len(self.FPS_OPTIONS)
+        elif id == "fps_next":
+            self._staged_fps_index = (self._staged_fps_index + 1) % len(self.FPS_OPTIONS)
         elif id == "fullscreen":
             self._staged_fullscreen = not self._staged_fullscreen
         elif id == "apply":
@@ -246,6 +273,7 @@ class SettingsMenu(StaticMenu):
         settings.width       = w
         settings.height      = h
         settings.is_fullscreen = self._staged_fullscreen
+        settings.FPS = self._staged_fps
         settings.init_resolution()
 
         # Reinitialise the display with the new resolution
@@ -299,6 +327,28 @@ class SettingsMenu(StaticMenu):
                   else self.buttons["fullscreen"].left + 3)
         pygame.draw.circle(surface, (220, 225, 230),
                            (knob_x, self._fs_y), 10)
+
+        # --- Maximum FPS Options ---
+        fps_label = self.label_font.render("Max FPS", True, (160, 170, 175))
+        surface.blit(fps_label, fps_label.get_rect(centerx=cx, y=self._res_y - 40))
+
+        # < arrow
+        pygame.draw.rect(surface, (70, 90, 110),
+                         self.buttons["fps_prev"], border_radius=4)
+        arrow_l = self.label_font.render("<", True, (210, 220, 225))
+        surface.blit(arrow_l, arrow_l.get_rect(center=self.buttons["fps_prev"].center))
+
+        # Resolution value
+        fps = self.FPS_OPTIONS[self._staged_res_index]
+        fps_str = self.label_font.render(f"{fps}", True, (230, 235, 240))
+        surface.blit(fps_str, fps_str.get_rect(centerx=cx, centery=self._res_y))
+
+        # > arrow
+        pygame.draw.rect(surface, (70, 90, 110),
+                         self.buttons["res_next"], border_radius=4)
+        arrow_r = self.label_font.render(">", True, (210, 220, 225))
+        surface.blit(arrow_r, arrow_r.get_rect(center=self.buttons["res_next"].center))
+
 
         # Staged-but-unapplied indicator
         res_changed = self.RESOLUTIONS[self._staged_res_index] != (settings.width, settings.height)
