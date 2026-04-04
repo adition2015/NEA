@@ -1,0 +1,80 @@
+@startuml
+class Menu {
+    update()
+    draw()
+    handle_input()
+        __init__()
+}
+class StaticMenu {
+    _build()
+    _check_hover()
+    update()
+    draw()
+    surface
+    buttons
+    clicked
+    click_signal
+    __init__()
+}
+class PopUpMenu {
+    _build()
+    _check_hover()
+    update()
+    draw()
+    _add_button()
+    overlay
+    panel
+    buttons
+    clicked
+    click_signal
+    __init__()
+}
+class StartMenu {
+    _build()
+    play_rect
+    settings_rect
+    __init__()
+}
+class SettingsMenu {
+    _build()
+    update()
+    _apply()
+    click_signal
+    surface
+    __init__()
+}
+class PauseMenu {
+    _build()
+        __init__()
+}
+class LevelMenu {
+    _build()
+    _draw_content()
+    result
+    __init__()
+}
+class Menus {
+    show_popup()
+    dismiss_popup()
+    go_to()
+    update()
+    draw()
+    _handle_static_click()
+    _handle_popup_click()
+    static_menu : StaticMenu 
+    pop_up : PopUpMenu  
+    transition
+    click_signal
+    __init__()
+}
+Menu <|-- StaticMenu
+StaticMenu --> Rect
+Menu <|-- PopUpMenu
+PopUpMenu --> Rect
+StaticMenu <|-- StartMenu
+StaticMenu <|-- SettingsMenu
+PopUpMenu <|-- PauseMenu
+PopUpMenu <|-- LevelMenu
+Menus --> StaticMenu
+Menus --> PopUpMenu
+@enduml

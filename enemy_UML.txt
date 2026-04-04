@@ -1,0 +1,50 @@
+@startuml
+class Enemy {
+    death()
+    patrol()
+    chase()
+    investigate()
+    alerted()
+    search()
+    returning_to_patrol()
+    attack()
+    set_return_path()
+    set_direction()
+    resolve_collision()
+    rotate()
+    move()
+    update_vision()
+    build_vision_cone()
+    get_vision_angles()
+    cast_ray()
+    draw()
+    update()
+    position
+    direction
+    speed
+    patrol_points
+    _icon
+    base_image
+    angle
+    last_seen
+    player_obs
+    FOV
+    cone_res
+    view_distance
+    turn_speed
+    carried
+    hidden
+    move_condition
+    suspicion
+    suspicion_multiplier
+    last_heard
+    collision_radius
+    rect
+    alerted_path
+    search_path
+    return_path
+    ray_count
+    _colour
+    __init__()
+}
+@enduml

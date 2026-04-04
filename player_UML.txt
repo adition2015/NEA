@@ -1,0 +1,29 @@
+@startuml
+class Player {
+    _build_image()
+    _rotate_to_mouse()
+    handle_input()
+    move()
+    attack()
+    resolve_collision()
+    draw()
+    update()
+    position
+    direction
+    movement_mode
+    speed
+    health
+    attack_range
+    attack_cooldown
+    dead
+    hidden
+    carrying_body
+    move_condition
+    interact_signal
+    attack_signal
+    drop_signal
+    noise_signal
+    rect
+    __init__()
+}
+@enduml

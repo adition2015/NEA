@@ -1,0 +1,17 @@
+@startuml
+class Settings {
+    calc_level_res()
+    calc_true_res()
+    init_resolution()
+    to_screen()
+    from_screen()
+    is_fullscreen
+    levelScalar
+    FPS
+    flags
+    scale_true_x
+    scale_true_y
+    res
+    __init__()
+}
+@enduml

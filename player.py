@@ -109,45 +109,12 @@ class Player(pygame.sprite.Sprite):
             self.position += self.direction * self.speed * dt * self.speed_mult
             self.rect.center = (int(self.position.x), int(self.position.y))
 
-    """def hide(self, interactable):
-        if not self.hidden:
-            if not self.carrying_body:
-                if interactable.in_use:
-                    # pick up body
-                    self.body = interactable.body
-                    interactable.body.hide(interactable)
-                else:
-                    self.last_pos   = pygame.Vector2(self.position)
-                    self.speed_mult = 0
-                    # interactable.rect is in base coords, so this is safe
-                    self.colour = (255, 255, 255)
-                    self.position   = pygame.Vector2(interactable.rect.center)
-                    self.hidden     = True
-            elif self.carrying_body and self.body != None:
-                if not interactable.in_use:
-                    # hide body
-                    interactable.body = self.body
-                    self.body.hide(interactable)
-                else:
-                    return # do nothing
-        else:
-            self.speed_mult = 1
-            self.colour = (60, 120, 220)
-            self.position   = self.last_pos
-            self.last_pos   = None
-            self.hidden     = False"""
 
     def attack(self):
         # produces attack signal
         self.attack_signal = True
         # level reads this in handle_player_attacks and verifies whether attack is successful        
     
-    """def drop_body(self):
-        if self.body != None:
-            self.body.carried = False
-            self.body = None
-            self.carrying_body = False"""
-        
 
     def resolve_collision(self, offset: pygame.Vector2):
         self.position += offset

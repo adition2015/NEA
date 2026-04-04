@@ -1,0 +1,59 @@
+@startuml
+class Level {
+    update()
+    draw()
+    _load_level()
+    handle_interactions()
+    _pick_up_body()
+    _deposit_body()
+    _retrieve_body()
+    _player_hide()
+    _player_unhide()
+    _drop_body()
+    handle_input()
+    handle_attacks()
+    _resolve_collisions()
+    _calculate_pushout()
+    _process_noise()
+    update_suspicion()
+    check_player_LoS()
+    _point_in_polygon()
+    update_vision_cones()
+    draw_vision_cones()
+    _compute_search_path()
+    _compute_alerted_path()
+    _compute_return_path()
+    draw_enemy_paths()
+    ID
+    surface
+    static_rects
+    interactables
+    graph
+    player
+    level_completed
+    level_failed
+    __init__()
+}
+class Wall {
+    draw()
+    rect
+    __init__()
+}
+class Door {
+    open()
+    close()
+    interact()
+    draw()
+    is_open
+    rect
+    __init__()
+}
+class HidingSpot {
+    draw()
+    interact()
+    rect
+    in_use
+    body
+    __init__()
+}
+@enduml

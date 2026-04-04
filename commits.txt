@@ -1,0 +1,23 @@
+3caf8e3 Successfully made scaling independent to every collision check and pathfinding check, only happens in drawing phase
+60c6d24 Going to try do a scaling overhaul where all scaling is only done in rendering
+61a8440 Fixed issue where path is calculated for each resolution separately, cuasing inconsistencies between resolutions. Calculating all paths in bas_level_res and scaling fixes this.
+494d4f8 Realised why paths are inconsistent: Need to do all path calculations at base_level_res then upscale. That is the problem
+f0bc89d inconsistencies in generation of path over different resolutions
+f72e8c2 Fixed enemy and player scaling, collision bugs for the enemy with similar root cause to the player bugs, patrolling issues, etc. Working on hiding spots and loading levels from json
+d798155 Merge branch 'viola' of https://github.com/adition2015/NEA into viola:
+b68c372 fixed more of the duplicates missed from last time, planning to implement. noise next.
+2f993f2 fixed scouting, works with chasing and patrolling. Bugs will be outlined in devlog_v4 at a later stage
+60c2afc Merge pull request #1 from adition2015/viola
+db07f09 merge complete, fixing duplicates..
+0e09008 Merge branch 'main' into viola
+d431e7e attempted scouting, bug where the enemy stops updating angle after changing first angle. Problem with incrementing of scout_id probably.
+11e7959 Fixed pathfinding and majority of chase behaviour, need to implement a min distance the enemy can be from the player, and fix enemy spawning
+5f7f5b3 added buffer fixes, in process of adding level storage in json
+cbd2f00 test
+338e515 who knows buddy
+35a73a2 fixed merge errors - github problems :(
+4ffd793 Merge branch 'main' of https://github.com/adition2015/NEA
+bb56f6c Scaled patrol points, but I am not sure, the return paths are very glitched
+ac75398 scaled buffer to window size to prevent inconsistencies in waypoint gen depending on resolution;: uncertainty of 1 pixel.. Need to fix chasing, but got the enemy to follow the player, but even without LoS, the enemy still has access to the player's position and sets direction to player.position.
+587a370 Fixed scaling bug, details in devlog_v3. Moving on to adding chasing. Successfully added update conditions when player in vision polygon, which means the inputs for vision have been captured and prcoessed succefully, now to add logic for vision system
+

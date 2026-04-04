@@ -1,0 +1,23 @@
+@startuml
+class Waypoint {
+    draw()
+    pos
+    neighbours
+    rect
+    __init__()
+}
+class WaypointGraph {
+    _gen_waypoints()
+    _build_waypoint_graph()
+    _check_neighbours()
+    line_blocked()
+    nearest_waypoint()
+    res
+    buffer
+    collision_rects
+    door_rects
+    waypoints
+    graph
+    __init__()
+}
+@enduml

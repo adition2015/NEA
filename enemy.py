@@ -338,12 +338,6 @@ class Enemy(pygame.sprite.Sprite):
             return player_pos + perp * t
         self.shot_target = get_attack_target(self.position, self.player_obs)
 
-        
-
-
-
-
-
     # ------------------------------------------------------------------
     # Movement helpers
     # ------------------------------------------------------------------

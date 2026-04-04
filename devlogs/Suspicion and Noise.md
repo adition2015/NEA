@@ -82,4 +82,61 @@ suspicion decay, every frame, decay suspicion by  suspicion decay constant * dt
 
 Functions to include:
 
-- 
+- dt is a measure of time between frames, informs how often to perform functions.
+
+LEVEL: process_noise(dt)
+    # collect all noise events this frame:
+    if player is moving:
+        create Noise at player's position with intensity proportional to player's speed
+    if player is attacking:
+        create Noise at player's position with intensity proportional to attack
+
+    # update enemies
+    for each enemy:
+        for each Noise event:
+            distance_sq = square distance between enemy position and noise position
+            perceived_intensity = noise_intensity / distance_sq
+            store percieved intensity as candidate
+        
+        target = loudest candidate noise
+        
+        call update_suspicion(enemy, target_intensity, dt)
+
+        if target_intensity > DIRECTABLE_THRESHOLD:
+            if enemy_suspicion >= SUSPICION_THRESHOLD:
+                if target_intensity > enemy's last heard noise_intensity:
+                    update enemy last heard noise
+                    call enemy.alerted()
+        
+        else if target.intensity > DETECTABLE_THRESHOLD:
+            call enemy.investigate()
+
+
+LEVEL: update_suspicion(enemy, intensity, dt):
+
+    # decay
+    enemy.suspicion -= SUSPICION_DECAY_CONSTANT * dt
+    clamp this to a minimum zero score
+
+    # accrue suspicion if noise is detectable
+    if intensity > DETECTABLE_THRESHOLD:
+        gain = (intensity - DETECTABLE_THRESHOLD)
+                * SUSPICION_CONVERSION_CONSTANT
+                * enemy.suspicion_multiplier
+        enemy.suspicion += gain
+        clamp to SUSPICION_CAP maximum
+    
+LEVEL: update_vision_cones(dt):
+    FOR EACH enemy:
+    IF dead body in vision cone:
+      spike enemy.suspicion upward
+      increase enemy.suspicion_multiplier
+      clamp both to caps
+
+    IF player in vision cone:
+      call enemy.chase()
+
+    IF enemy was chasing but lost sight:
+      increase enemy.suspicion_multiplier   # post-chase sensitivity
+      clamp to SUSPICION_MULTIPLIER_CAP
+      call enemy.search()

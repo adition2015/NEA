@@ -66,7 +66,7 @@ class NavMesh:
 
         self.polys = self._refine_polys(self.polys, max_area=500)
 
-        
+        x
         self._build_neighbours()
 
     def _build_neighbours(self):

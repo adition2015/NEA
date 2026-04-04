@@ -1,0 +1,33 @@
+@startuml
+class GameStateManager {
+    init_pygame()
+    init_window()
+    init_game_state()
+    load_state()
+    game_state()
+    game_state()
+    run()
+    draw()
+    update()
+    _handle_menu_transition()
+    handle_events()
+    init_load_level()
+    init_menus()
+    init_pop_up_menu()
+        _game_state
+    clock
+    screen
+    running
+    paused
+    _game_state
+    paused
+    level
+    running
+    running
+    paused
+    level
+    menus
+    pop_up_menu
+    __init__()
+}
+@enduml

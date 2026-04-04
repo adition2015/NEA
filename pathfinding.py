@@ -34,7 +34,8 @@ def a_star(start: Waypoint, end: Waypoint):
 
         if current == end:
             path = []
-            # iteratively adds from came_from the nodes the path takes in reverse order, except start
+            # iteratively adds from came_from the nodes the path
+            # takes in reverse order, except start
             # start is added later
             # path is reversed and returned for further use
             while current in came_from:

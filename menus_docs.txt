@@ -1,0 +1,51 @@
+# ===========================================================================
+# MENUS ARCHITECTURE OVERVIEW
+#
+# There are three layers, rendered in this order each frame:
+#   1. Level (game world) — drawn by GameStateManager before menus
+#   2. StaticMenu — full-screen surface that completely covers the game view
+#   3. PopUpMenu  — small panel + dim overlay sitting on top of whatever is below
+#
+# The Menus coordinator owns one static + one popup at a time.
+# Clicks flow: GameStateManager → Menus → active menu → .clicked string
+# State changes flow back: active menu → Menus.transition → GameStateManager
+#
+# ===========================================================================
+""" Static Menu
+    Full-screen menus that replace the game view entirely.
+
+    HOW RENDERING WORKS:
+    - Owns its own pygame.Surface (self.surface) the size of the full window.
+    - _draw_content() paints everything onto self.surface each frame.
+    - draw() blits self.surface to the real screen at (0, 0), covering whatever
+      was drawn before (the game world, previous menus, etc.).
+    - This means the game loop never needs to stop drawing the level —
+      the static menu just paints over it.
+
+    HOW CLICKS WORK:
+    - self.buttons is a dict mapping an id string → absolute screen pygame.Rect.
+    - GameStateManager sets menus.click_signal = True on mouse down.
+    - Menus.update() forwards click_signal to this menu.
+    - update() checks every button rect against the current mouse position.
+    - The first matching button id is written to self.clicked.
+    - Menus.update() reads self.clicked next frame and converts it to a transition.
+    """
+"""Pop up menu
+    Overlay menus drawn on top of the current frame.
+
+    HOW RENDERING WORKS:
+    - Does NOT own a full-screen surface. Instead it draws directly onto
+      the screen surface that is passed into draw().
+    - Step 1: Fill a full-window SRCALPHA surface with semi-transparent black
+              and blit it onto the screen → dims whatever was drawn beneath.
+    - Step 2: Fill a small panel surface and draw buttons/labels onto it.
+    - Step 3: Blit the panel centred on screen.
+    - This preserves the game world (or static menu) visible but darkened
+      behind the panel — the classic "pause screen" look.
+
+    HOW BUTTONS WORK:
+    - _add_button() stores drawing params (for rendering) AND registers an
+      absolute screen rect in self.buttons (for click detection).
+    - Absolute rects are computed using _panel_rect(), which centres the panel
+      each time — so buttons always track with the panel position.
+    """

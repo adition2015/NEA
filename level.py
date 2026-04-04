@@ -9,8 +9,6 @@ from noise import NoiseEvent
 
 DETECTABLE_THRESHOLD = 1.0
 DIRECTABLE_THRESHOLD = 2.0
-
-
 SUSPICION_CONVERSION_CONSTANT = 0.5
 SUSPICION_DECAY_CONSTANT = 5  # per second
 SUSPICION_THRESHOLD = 50      # must be reached for directable noise to alert
@@ -395,6 +393,16 @@ class Level:
             return self._point_in_polygon(self.player.position, enemy.vision_points)
 
     def _point_in_polygon(self, point: pygame.Vector2, polygon: list) -> bool:
+        """
+        Determines if a point lies inside a polygon using the Ray Casting algorithm.
+
+        Algorithm adapted from W. Randolph Franklin's Point In Polygon implementation:
+        https://wrfranklin.org/Research/Short_Notes/pnpoly.html
+
+        The algorithm fires a ray from the test point in one direction and counts
+        how many times it intersects with the polygon's edges. An odd number of
+        intersections means the point is inside; even means outside.
+        """
         x, y = point
         inside = False
         n = len(polygon)

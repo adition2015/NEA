@@ -1,0 +1,1589 @@
+diff --git a/enemy.py b/enemy.py
+index dc628a2..449ef32 100644
+--- a/enemy.py
++++ b/enemy.py
+@@ -1,339 +1,230 @@
+-import pygame, math
++import pygame, numpy as np, math
+ from grid_waypoint import *
+ from pathfinding import *
++from functools import lru_cache
+ from settings import settings
+ 
+-# All speeds are in base units per second (base res = 1080×720).
+-PATROL_SPEED        = 50
+-CHASE_SPEED         = 100
+-SEARCH_SPEED        = 75
+-RETURN_SPEED        = 50
+-
+-
+ class Enemy(pygame.sprite.Sprite):
+     def __init__(self, position: tuple, direction: tuple, patrol_points: list):
+         super().__init__()
+-        self.position = pygame.Vector2(position)        # BASE coords
++        self.position = pygame.Vector2(position)
+         self.direction = pygame.Vector2(direction)
+         if self.direction.length() > 0:
+             self.direction = self.direction.normalize()
+-
+-        self.speed = PATROL_SPEED
+-        self.patrol_points = patrol_points              # BASE coords (straight from JSON)
++        self.speed = 75*settings.scale_diagonal
++        self.patrol_points = patrol_points
+         self.waypoints = []
+-        self.patrol_path = []                           # BASE coords (set by Level)
+         self.current_waypoint_index = 0
+ 
+-        # --- visual ---
++        # -- visual setup --
+         self.base_image = self._build_image()
+-        # rect tracks BASE coords for collision / LoS polygon test
+-        self.rect = self.base_image.get_rect(center=(int(self.position.x),
+-                                                      int(self.position.y)))
++        self.rect = self.base_image.get_rect(center=(int(self.position.x), int(self.position.y)))
+         self.angle = 0
+-        self._vision_dirty  = True
+-        self.vision_points  = []                        # BASE coords
++        self._vision_dirty = True
++        self.vision_points = []
+         self.vision_cone_colour = (64, 64, 0)
+-        self.last_seen  = None
+-        self.player_obs = None
+-        self.LoS_timer  = 0.5
+-        self.target_angle = None
+ 
+-        # vision — all distances in base units
+-        self.FOV           = 100
+-        self.cone_res      = 0.5
+-        self.view_distance = 150        # base units
+ 
+-        self.turn_speed = 360           # degrees / second
++        # vision
++        self.FOV = 60
++        self.cone_res = 0.5 # lines per degree
++        self.view_distance = int(300 * settings.scale_diagonal)  # Scale vision range to resolution
+ 
+-        self.state     = "patrol"
++        self.turn_speed = 360 # degrees per second
++
++        self.state = "patrol"
+         self.patrol_ID = 0
+ 
+-        self.search_path = []
+-        self.search_id   = 0
+-        self.return_path = []
+-        self.return_id   = 0
++        # -- prerequisites --
+ 
+-    # ------------------------------------------------------------------
+-    # Visual
+-    # ------------------------------------------------------------------
+ 
+     def _build_image(self) -> pygame.Surface:
+-        # Image pixel size is a rendering concern — scale is fine here.
+-        size = max(1, int(16 * settings.scale_total_x))
+-        surface = pygame.Surface((size, size), pygame.SRCALPHA)
+-        pygame.draw.circle(surface, (240, 10, 20), (size // 2, size // 2), size // 2)
++        """Build the enemy's base sprite surface (facing right = 0 degrees)."""
++        BASE_SIZE = 16
++        BASE_RADIUS = BASE_SIZE / 2
++        size = int(BASE_SIZE * settings.scale_diagonal)
++        surface = pygame.Surface((size, size), pygame.SRCALPHA)  # SRCALPHA = transparent background
++
++        # Body
++        radius = int(BASE_RADIUS * settings.scale_diagonal)
++        pygame.draw.circle(surface, (240, 10, 20), (size // 2, size // 2), radius)
++        
++        # Direction indicator (nose) — points RIGHT by default (angle 0)
++        scale = settings.scale_diagonal
++        pygame.draw.polygon(surface, (255, 255, 255), [
++            (int(24 * scale), int(16 * scale)), 
++            (int(16 * scale), int(7 * scale)), 
++            (int(16 * scale), int(23 * scale))
++        ])
+         return surface
+-
+-    # ------------------------------------------------------------------
+-    # Patrol
+-    # ------------------------------------------------------------------
+-
++    
+     def precalculate_patrol_path(self):
+         self.patrol_path = []
+         for i in range(len(self.waypoints) - 1):
+-            path_between_pts = a_star(self.waypoints[i], self.waypoints[i + 1])
++            path_between_pts = a_star(self.waypoints[i], self.waypoints[i+1])
+             if path_between_pts is None:
+                 print(f"Warning: no path between waypoint {i} and {i+1} — skipping segment")
+                 continue
+             self.patrol_path.extend(path_between_pts)
+-
++        
+         if len(self.waypoints) >= 2:
+             return_path = a_star(self.waypoints[-1], self.waypoints[0])
+             if return_path:
+                 self.patrol_path.extend(return_path)
+-
++        # print(self.patrol_path)
++    
+     def patrol(self):
++        """Simple waypoint-based patrol - move to next waypoint when close enough."""
+         if not self.patrol_path:
+             print("Enemy has no patrol path associated.")
+-            return
+-        self.follow_patrol_path()
++            return 
++        # follow patrol path indefinitely:
++        else:
++            self.follow_patrol_path()
++
+ 
+     def follow_patrol_path(self):
++        # patrol_path contains Waypoint objects; compare using their positions
+         self.target_pos = self.patrol_path[self.patrol_ID]
+         if self.position.distance_to(self.target_pos) < 5:
+             self.patrol_ID = (self.patrol_ID + 1) % len(self.patrol_path)
+-            self.set_direction(self.patrol_path[self.patrol_ID])
+-
+-    # ------------------------------------------------------------------
+-    # Chase
+-    # ------------------------------------------------------------------
+-
+-    def transition_chase(self, player_obs: pygame.Vector2):
+-        self.state = "chase"
+-        self.vision_cone_colour = (64, 0, 0)
+-        self.target_angle = None
+-        self.player_obs   = player_obs
+-        self.last_seen    = pygame.Vector2(player_obs)
+-
+-    def chase(self):
+-        dist_to_player = self.position.distance_to(self.player_obs)
+-        min_dist = 30   # base units
+-        if dist_to_player < min_dist:
+-            self.speed = 0
+-            self.set_direction(self.player_obs)
+-        else:
+-            self.speed = CHASE_SPEED
+-            self.set_direction(self.player_obs)
+-
+-    # ------------------------------------------------------------------
+-    # Search
+-    # ------------------------------------------------------------------
+-
+-    def transition_search(self, search_path: list):
+-        if self.state == "search":
+-            return
+-        self.state = "search"
+-        self.vision_cone_colour = (64, 32, 0)
+-        self.target_angle = None
+-        self.player_obs   = None
+-        self.search_path  = search_path or []
+-        self.search_id    = 0
+-        if self.search_path:
+-            self.set_direction(self.search_path[0])
+-
+-    def search(self):
+-        if not self.search_path:
+-            self.transition_patrol()
+-            return
+-
+-        target = self.search_path[self.search_id]
+-        self.set_direction(target)
+-
+-        if self.position.distance_to(target) < 5:
+-            self.search_id += 1
+-            if self.search_id >= len(self.search_path):
+-                self.transition_scout()
+-                return
+-            self.set_direction(self.search_path[self.search_id])
+-
+-    # ------------------------------------------------------------------
+-    # Scout
+-    # ------------------------------------------------------------------
+-
+-    def transition_scout(self):
+-        if self.state != "scout":
+-            self.state = "scout"
+-            self.scout_angles = [self.angle + 180, self.angle + 360]
+-            self.scout_id    = 0
+-            self.search_path = []
+-            self.search_id   = 0
+-
+-    def scout(self):
+-        if self.scout_id >= len(self.scout_angles) or self.state != "scout":
+-            self.target_angle = None
+-            self.transition_returning_to_patrol()
+-            return
+-
+-        self.target_angle = self.scout_angles[self.scout_id]
+-        if abs(self.angle - self.target_angle) < 1.0:
+-            self.scout_id += 1
+-
+-    # ------------------------------------------------------------------
+-    # Return to patrol
+-    # ------------------------------------------------------------------
+-
+-    def transition_returning_to_patrol(self):
+-        if self.state != "returning_to_patrol":
+-            self.state = "returning_to_patrol"
+-            self.vision_cone_colour = (64, 64, 0)
+-            self.target_angle = None
+-            self.player_obs   = None
+-            self.return_path  = []
+-            self.return_id    = 0
+-
+-    def returning_to_patrol(self):
+-        if not self.return_path:
+-            self.transition_patrol()
+-            return
+-
+-        target = self.return_path[self.return_id]
+-        self.set_direction(target)
+-
+-        if self.position.distance_to(target) < 5:
+-            self.return_id += 1
+-            if self.return_id >= len(self.return_path):
+-                self.transition_patrol()
+-                return
+-            self.set_direction(self.return_path[self.return_id])
+-
+-    def transition_patrol(self):
+-        self.state = "patrol"
+-        self.vision_cone_colour = (64, 64, 0)
+-        self.target_angle = None
+-        self.player_obs   = None
+-        self.last_seen    = None
+-        self.return_path  = []
+-        self.return_id    = 0
+-        if self.patrol_path:
+-            min_dist   = float('inf')
+-            closest_id = 0
+-            for i, pt in enumerate(self.patrol_path):
+-                dist = self.position.distance_to(pt)
+-                if dist < min_dist:
+-                    min_dist   = dist
+-                    closest_id = i
+-            self.patrol_ID = closest_id
+-            self.set_direction(self.patrol_path[self.patrol_ID])
++            self.set_direction()
++            # print(f"pos: {self.position}, target: {self.target_pos}, dist: {self.position.distance_to(self.target_pos)}")
+ 
+-    # ------------------------------------------------------------------
+-    # Movement helpers
+-    # ------------------------------------------------------------------
+-
+-    def set_return_path(self, path: list):
+-        self.return_path = path or []
+-        self.return_id   = 0
+-        if self.return_path:
+-            self.set_direction(self.return_path[0])
+-
+-    def set_direction(self, target: pygame.Vector2):
+-        vec = pygame.Vector2(target) - self.position
++    def set_direction(self):
++        # point towards the current waypoint in the patrol path
++        target = self.patrol_path[self.patrol_ID]
++        vec = target - self.position
+         if vec.length() > 0:
+             self.direction = vec.normalize()
+         else:
++            
+             self.direction = pygame.Vector2(0, 0)
+ 
+     def resolve_collision(self, offset: pygame.Vector2):
+         self.position += offset
+         self.rect.center = (int(self.position.x), int(self.position.y))
+-        if self.patrol_path:
+-            self.set_direction(self.patrol_path[self.patrol_ID])
+-
+-    def rotate(self, dt, desired_angle=None):
+-        if desired_angle is None:
+-            desired_angle = math.degrees(math.atan2(-self.direction.y, self.direction.x))
+-
++        # reset direction:
++        self.set_direction()
++    
++    def rotate(self, dt):
++        # Calculate desired angle from direction vector
++        desired_angle = math.degrees(math.atan2(-self.direction.y, self.direction.x))
++        
++        # Calculate shortest angle difference (-180 to +180)
+         angle_diff = (desired_angle - self.angle + 180) % 360 - 180
+-
++        
++        # If already at the target, stop rotating
+         if abs(angle_diff) < 0.01:
+             self.angle = desired_angle
+             return True
+-
++        
++        # Calculate rotation amount for this frame
+         rotation_amount = dt * self.turn_speed
++        
++        # OVERSHOOT PREVENTION: If we would rotate past the target, clamp to exact angle
+         if abs(rotation_amount) >= abs(angle_diff):
+             self.angle = desired_angle
+         else:
+-            self.angle += rotation_amount if angle_diff > 0 else -rotation_amount
++            # Rotate in the correct direction by the calculated amount
++            if angle_diff < 0:
++                self.angle -= rotation_amount
++            else:
++                self.angle += rotation_amount 
+ 
+-    def move(self, dt, desired_angle=None):
++
++    def move(self, dt):
+         self.position += dt * self.speed * self.direction
+         self.rect.center = (int(self.position.x), int(self.position.y))
+-        if desired_angle is not None or self.direction.length() > 0:
+-            self.rotate(dt, desired_angle)
++        # update angle (if direction is zero this will produce 0)
++        if self.direction.length() > 0:
++            self.rotate(dt)
++        else:
++            self.angle = 0
++
++    
++    def draw(self, surface: pygame.Surface):
++        """Rotate fresh from base_image every draw call — no cumulative degradation."""
++        rotated = pygame.transform.rotate(self.base_image, self.angle)
++        rect = rotated.get_rect(center=(int(self.position.x), int(self.position.y)))
++        surface.blit(rotated, rect)
++    
++    def update(self, dt: float):
+ 
+-    # ------------------------------------------------------------------
+-    # Vision  (ray casting in BASE coords)
+-    # ------------------------------------------------------------------
++        if self.state == "patrol":
++            self.patrol()
++        if self.state == "chase":
++            self.chase()
+ 
++        
++        self.move(dt)
++        self.update_vision()
++    
+     def update_vision(self):
+-        old_pos   = pygame.Vector2(self.position)
++        old_pos = pygame.Vector2(self.position)
+         old_angle = self.angle
+         self._vision_dirty = (
+             self.position.distance_to(old_pos) > 0.5 or
+-            abs(self.angle - old_angle) > 2.0
++            abs(self.angle - old_angle) > 0.2
+         )
+ 
+-    def build_vision_cone(self, collision_rects):
+-        """Returns a list of (x, y) tuples in BASE coords."""
++    def build_vision_cone(self, walls):
+         self.angles = self.get_vision_angles()
+-        points = [(self.position.x, self.position.y)]
++        points = [self.rect.center]
+         for angle in self.angles:
+-            points.append(self.cast_ray(angle, collision_rects))
++            points.append(self.cast_ray(angle, walls)) # draw a polygon with these points, if not, line is okay
+         return points
+ 
+     def get_vision_angles(self):
+         self.ray_count = int(self.FOV * self.cone_res)
+         half = self.FOV / 2
+-        return [
++        angles =  [
+             self.angle - half + i * (1 / self.cone_res)
+             for i in range(self.ray_count)
+         ]
++        return angles
+ 
+     def cast_ray(self, angle, collision_rects):
+-        """Cast a ray in BASE space; collision_rects must be in BASE coords."""
+-        rad       = math.radians(angle)
+-        direction = pygame.Vector2(math.cos(rad), -math.sin(rad))
+-        start     = pygame.Vector2(self.position)
+-        end       = start + direction * self.view_distance   # view_distance in base units
+-
++        "Returns the end point of a ray in a vision cone"
++        rad = math.radians(angle)
++        dx = math.cos(rad)
++        dy = -math.sin(rad)
++        direction = pygame.Vector2(dx, dy)
++        start = pygame.Vector2(self.rect.center)
++        end = start + direction * self.view_distance
++        
+         hit_point = end
+         for wall in collision_rects:
+             clipped = wall.clipline(start, end)
+             if clipped:
+-                from pathfinding import distance
++                #find distance between hitpoint and self.rect.center
+                 if distance(self.rect.center, clipped[0]) < distance(self.rect.center, hit_point):
+                     hit_point = clipped[0]
+         return hit_point
+ 
+-    # draw_vision_cone is intentionally removed from Enemy.
+-    # Level.draw_vision_cones() handles scaling + blending centrally.
+-
+-    # ------------------------------------------------------------------
+-    # Draw / Update
+-    # ------------------------------------------------------------------
+-
+-    def draw(self, surface: pygame.Surface):
+-        rotated = pygame.transform.rotate(self.base_image, self.angle)
+-        # Only here: convert base position → level-surface pixels.
+-        screen_pos = settings.to_screen(self.position)
+-        rect = rotated.get_rect(center=(int(screen_pos.x), int(screen_pos.y)))
+-        surface.blit(rotated, rect)
+-
+-    def update(self, dt: float):
+-        if self.state == "patrol":
+-            self.speed = PATROL_SPEED
+-            self.patrol()
+-        elif self.state == "chase":
+-            self.speed = CHASE_SPEED
+-            self.chase()
+-        elif self.state == "search":
+-            self.speed = SEARCH_SPEED
+-            self.search()
+-        elif self.state == "returning_to_patrol":
+-            self.speed = RETURN_SPEED
+-            self.returning_to_patrol()
+-        elif self.state == "scout":
+-            self.speed = 0
+-            self.scout()
+-
+-        self.move(dt, self.target_angle)
+-        self.update_vision()
++    def draw_vision_cone(self, surface, points):
++        # TRANSPARENCY FIX: pygame.draw.polygon with alpha doesn't blend properly on SRCALPHA surfaces
++        # Solution: Create a temporary surface, draw on it, then blit with proper alpha blending
++        if len(points) < 2:
++            return  # Need at least 2 points to draw
++        
++        # Create a temporary transparent surface for the vision cone
++        temp_surface = pygame.Surface((surface.get_width(), surface.get_height()), pygame.SRCALPHA)
++        
++        # Draw the filled polygon on the temporary surface with transparency (RGBA: Yellow with 64/255 alpha)
++        pygame.draw.polygon(temp_surface, (255, 255, 0, 64), points)
++        
++        # Blit the temporary surface onto the main surface using alpha blending
++        # This properly composites the transparent polygon with the background
++        surface.blit(temp_surface, (0, 0))
++    
++    def chase(self):
++        pass
++        # When chasing, there are two stages
++        # 1. Following player when enemy has line of sight
++        # 2. Searching last player location when lost line of sight
++        # Rules:
++        # Enemy should never have access to player position, only level should handle this
++        # Enemy should return to the nearest patrol point when player is lost.
++        
++        # enemy has attribute self.is_LoS_player, only controlled by level.
+\ No newline at end of file
+diff --git a/game_state_manager.py b/game_state_manager.py
+index 407d8e6..045fbd6 100644
+--- a/game_state_manager.py
++++ b/game_state_manager.py
+@@ -23,14 +23,11 @@ class GameStateManager:
+ 
+     def init_game_state(self):
+         self.running = True
+-        self.paused = False
+         self.game_state = "playing"
+ 
+-
+     # runtime functions
+     def run(self):
+         while self.running:
+-            self.game_state = "playing" if not self.paused else "paused"
+             dt = self.clock.tick(settings.FPS) / 1000 
+             fps = self.clock.get_fps()   
+             self.handle_events()
+@@ -43,10 +40,12 @@ class GameStateManager:
+             self.level.update(dt)
+ 
+     def draw(self, fps):
++        self.screen.fill((0, 0, 0))
++
+         if self.game_state == "playing":
+-            self.screen.fill((0, 0, 0))
+             self.level.draw(self.screen, fps)
+-            pygame.display.flip()
++
++        pygame.display.flip()
+ 
+     def handle_events(self):
+         for event in pygame.event.get():
+@@ -55,11 +54,10 @@ class GameStateManager:
+             # -- temp -- 
+             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                 self.running = False
+-            elif event.type == pygame.KEYDOWN and event.key == pygame.K_p:
+-                self.paused = not self.paused
+             
+             if self.game_state == "playing":
+                 self.level.handle_input(event) # handle level input
++
+             
+     def init_load_level(self):
+         # test level
+diff --git a/grid_waypoint.py b/grid_waypoint.py
+index 2bf3130..ba699dd 100644
+--- a/grid_waypoint.py
++++ b/grid_waypoint.py
+@@ -12,30 +12,24 @@ class Waypoint:
+     
+ 
+ class WaypointGraph:
+-    def __init__(self, level_res: tuple, collision_rects: list, res: int, buffer: int, door_rects: list):
++    def __init__(self, level_res: tuple, collision_rects: list, res: int, door_rects: list):
+         self.res = res
+-        self.buffer = buffer
+         self.collision_rects = collision_rects
+         self.door_rects = door_rects
+ 
+-
+         # enemy variables:
+-        # enemy size displacement  at base_level
+-        self.sdv= pygame.Vector2()
++        self.sdv = pygame.Vector2(20, 20) # enemy size displacement  at base_level
+         
+         # initialisation
+         self.waypoints = self._gen_waypoints(level_res)
+         self.graph = self._build_waypoint_graph()
+         
+-        # debug
+-        self.scan_rect_count = 0
+-        self.fall_back_count = 0
+-        self.ultra_fall_back_count = 0
+         
+ 
+     def _gen_waypoints(self, level_res):
+         """Generates waypoints with resolution density, i.e. one waypoint every res pixels."""
+         # add a buffer of 10 pixels to ignore surrounding walls.
++        buffer = 10
+         w, h = level_res
+         cols = round(w // self.res)
+         rows = round(h // self.res)
+@@ -45,7 +39,7 @@ class WaypointGraph:
+         for i in range(cols):
+             for j in range(rows):
+                 # create wp_rect, check for collisions, place waypoint in centre if no collision rects
+-                wp_rect = pygame.Rect((i * self.res) + self.buffer/2, (j * self.res) + self.buffer / 2, self.res-self.buffer, self.res-self.buffer)
++                wp_rect = pygame.Rect((i * self.res) + buffer/2, (j * self.res) + buffer / 2, self.res-buffer, self.res-buffer)
+                 if wp_rect.collidelist(self.collision_rects) == -1:
+                     wps.append(Waypoint(wp_rect.center))
+         
+@@ -66,10 +60,7 @@ class WaypointGraph:
+         for wp in self.waypoints:
+             neighbours = self._check_neighbours(wp.pos, depth=3)
+             wp.neighbours = neighbours
+-            if wp.neighbours:
+-                wp_dict[wp] = neighbours
+-            else:
+-                self.waypoints.remove(wp)
++            wp_dict[wp] = neighbours
+         
+         return wp_dict # for storage of waypoints
+             
+@@ -89,11 +80,11 @@ class WaypointGraph:
+                 candidates.append(wp)
+         
+         for wp in candidates:
+-            if not self.line_blocked(waypoint, wp.pos):
++            if not self._line_blocked(waypoint, wp.pos):
+                 neighbours.append(wp)
+         return neighbours
+ 
+-    def line_blocked(self, p1: pygame.Vector2, p2: pygame.Vector2):
++    def _line_blocked(self, p1: pygame.Vector2, p2: pygame.Vector2):
+         blocked = False
+         # enemy width = 32 but for extra room, self.sdv accounts for 40:
+         for rect in self.collision_rects:
+@@ -102,22 +93,22 @@ class WaypointGraph:
+         return blocked
+ 
+     def nearest_waypoint(self, pt):
++        # Finds nearest waypoint to a given point
++        # waypoints generate from res/2, res/2, incrementing res onwards
++        # find nearest x and y coordinate near the arith seq res/2 + n
+         x, y = pt
+-        # draw a square rect with 4 * self.res length with center, x, y
+-        pt_vec = pygame.Vector2(pt)
+-        scan_rect = pygame.Rect(x - 2*self.res, y - 2*self.res, 4*self.res, 4*self.res)
+-        candidates = [wp for wp in self.waypoints if (scan_rect.collidepoint(wp.pos) and not self.line_blocked(pt_vec, wp.pos))]
+-        if candidates:
+-            self.scan_rect_count += 1
+-            n_wp = min(candidates, key = lambda wp: wp.pos.distance_to(pt_vec))
+-            print(f'{pt_vec}:{n_wp.pos}')
+-            return n_wp
+-        self.ultra_fall_back_count += 1
+-        # Last resort: closest by distance if nothing has LoS (shouldn't normally happen)
+-        n_wp = min(self.waypoints, key=lambda wp: wp.pos.distance_to(pt_vec))
+-        print(f'Last Resort: {pt_vec}:{n_wp.pos}')
+-        return n_wp
+-            
++        x_offset, y_offset = x - self.res/2, y - self.res/2
++        col, row = x_offset // self.res, y_offset // self.res
++        pos = ((col + 0.5) * self.res, (row + 0.5) * self.res)
++        # Find waypoint at or near the calculated position
++        for wp in self.waypoints:
++            if wp.pos == pygame.Vector2(pos):
++                return wp
++        
++        # Fallback: find closest waypoint by distance if exact match not found
++        closest_wp = min(self.waypoints, key=lambda wp: wp.pos.distance_to(pt))
++        return closest_wp
++        
+         
+         
+      
+diff --git a/level.py b/level.py
+index 486777a..4d0eade 100644
+--- a/level.py
++++ b/level.py
+@@ -1,189 +1,199 @@
+-import pygame, os
++import pygame
+ from player import Player
+ from enemy import Enemy
+-from settings import settings, BASE_LEVEL_RES
++from settings import *
+ from utils import draw_debug
+-from grid_waypoint import Waypoint, WaypointGraph
+-from pathfinding import distance, a_star
++from grid_waypoint import *
++from pathfinding import distance
++# Links:
++"https://www.youtube.com/watch?v=UT_tKPLejyU" # pygame layers for drawing on screen
+ 
+ 
++def scale_rect(x, y, w, h):
++    return (
++        int(x * settings.scale_x),
++        int(y * settings.scale_y),
++        int(w * settings.scale_x),
++        int(h * settings.scale_y)
++    )
++
+ class Level:
+     def __init__(self, ID, data):
++        player_pos = tuple(x//2 for x in settings.level_res) # encode it into data for level.
+         self.ID = ID
+ 
+-        self.surface = pygame.Surface(settings.true_level_res, pygame.SRCALPHA)
+-        self.walls        = []
+-        self.doors        = []
+-        self.hiding_spots = []
+-        self.enemies      = []
++        self.surface = pygame.Surface(settings.level_res, pygame.SRCALPHA)
++        self.walls = [] # all walls have a rect attribute - this will be called for collisions
++        self.doors = []# all doors have a rect attribute - if closed, will be called for collisions
+         self._load_level(data)
+ 
+-        # All rects are now in BASE coords.
++        # build lists of collision rectangles.  ``collision_rects`` is the
++        # authoritative set used for physics and door interactions; it will be
++        # mutated whenever a door opens or closes.  the navigation mesh is
++        # constructed from *walls alone* and is never updated because doors are
++        # effectively always passable (enemies will open them if necessary).
+         self.collision_rects = [wall.rect for wall in self.walls]
+-        self.static_rects    = self.collision_rects.copy()
+-        self.door_rects      = [door.rect for door in self.doors]
+-        self.interactables   = list(self.doors) + list(self.hiding_spots)
+-
+-        # WaypointGraph works in BASE coords — pass base-space rects directly.
+-        self.graph = WaypointGraph(
+-            BASE_LEVEL_RES,
+-            self.static_rects,
+-            50,     # cell size in base units
+-            10,     # buffer in base units
+-            self.door_rects,
+-        )
++        self.static_rects = self.collision_rects.copy()
++        self.interactables = [door for door in self.doors]
++        self.door_rects = [door.rect for door in self.doors]
+ 
++        self.graph = WaypointGraph(settings.level_res, self.static_rects, 50*settings.scale_diagonal, self.door_rects)
+         connected = [wp for wp in self.graph.waypoints if wp.neighbours]
+         print(f"Waypoints with neighbours: {len(connected)} / {len(self.graph.waypoints)}")
+-
+-        # Open all doors at level start (adds them back to collision once closed).
++        
++        # now initialise door geometry in the physics set; this has no bearing
++        # on the mesh and only affects collisions for player/enemies.
+         for door in self.doors:
+             door.interact(self.collision_rects)
+ 
+-        # Player spawns at the centre of the base-res level.
+         self.player = Player(
+-            position=pygame.Vector2(BASE_LEVEL_RES[0] // 2, BASE_LEVEL_RES[1] // 2),
+-            direction=pygame.Vector2(0, -1),
+-        )
++                             position=pygame.Vector2(player_pos),
++                             direction=pygame.Vector2(0, -1)
++                             )
++
++        # initialise enemies
++        self.enemies = [
++            Enemy((100, 100), (0, 0), [(100, 100), (100, 200), (200, 100), (400, 400)]),
++            Enemy((600, 600), (0, 0), [(600, 600), (400, 600), (800, 100), (400, 100)])
++            #Enemy((200, 200), (0, 0), [(200, 200), (300, 200), (200, 600), (900, 400)]),
++            #Enemy((500, 600), (0, 0), [(500, 600), (200, 100), (700, 100), (100, 500)])
++        ]
+ 
+         self.precalculate_patrol_path()
+-        print(f'{self.graph.scan_rect_count}/{self.graph.fall_back_count}/{self.graph.ultra_fall_back_count}')
+ 
+-        self.cone_surface = pygame.Surface(settings.true_level_res).convert()
+-        self.cone_temp    = pygame.Surface(settings.true_level_res).convert()
+-        self.cone_update_interval = 50   # ms between cone redraws
+-        self.cone_timer   = 0
+ 
+-    # ------------------------------------------------------------------
+-    # Core loop
+-    # ------------------------------------------------------------------
++        # preallocated drawing surface for vision cones:
++        self.cone_surface = pygame.Surface(settings.level_res).convert()
++        self.cone_temp = pygame.Surface(settings.level_res).convert()
++        self.cone_update_interval = 50  # ms between cone redraws (= 20 FPS)
++        self.cone_timer = 0
+ 
+     def update(self, dt):
+-        self.cone_timer += dt * 1000
++        self.cone_timer += dt * 1000 
+         self.player.update(dt)
+         self._resolve_collisions()
+         self.handle_interaction()
+         self.check_enemy_interactions()
+-        self.update_vision_cones(dt)
+-        for enemy in self.enemies:
+-            enemy.update(dt)
++        self.update_vision_cones()
++        for i in self.enemies:
++           i.update(dt)
+ 
+     def draw(self, screen, fps):
++        #clear surface every frame:
+         self.surface.fill((20, 20, 20))
+ 
+-        for door in self.doors:
+-            door.draw(self.surface)
+-
+-        # Debug waypoints — convert base pos to screen for drawing.
+-        for wp in self.graph.waypoints:
+-            sx = int(wp.pos.x * settings.scale_total_x)
+-            sy = int(wp.pos.y * settings.scale_total_y)
+-            pygame.draw.rect(self.surface, (255, 255, 0), pygame.Rect(sx, sy, 1, 1))
+-
+-        self.draw_enemy_paths()
+-
+-        for wall in self.walls:
+-            wall.draw(self.surface)
+-        for spot in self.hiding_spots:
+-            spot.draw(self.surface)
++        # draw player and other dynamic level objects
++       
++        # -- doors --
++        for i in self.doors:
++            i.draw(self.surface)
+ 
++        # -- player --
+         self.player.draw(self.surface)
+ 
+-        for enemy in self.enemies:
+-            enemy.draw(self.surface)
+-
++        # -- enemy --
++        for i in self.enemies:
++            i.draw(self.surface)
+         if self.cone_timer >= self.cone_update_interval:
+             self.draw_vision_cones()
++            
+             self.cone_timer = 0
++        # always blit the cached cone_surface, even on skipped frames
+         self.surface.blit(self.cone_surface, (0, 0), special_flags=pygame.BLEND_ADD)
+ 
+-        self.draw_icons()
+-        screen.blit(self.surface, settings.level_offset)
++        # draw static level objects
++        for i in self.walls:
++            i.draw(self.surface)
++        
++
+ 
++        # debug:
+         draw_debug(screen, {
+-            "cursor_pos":       self.relative_cursor_pos(),
+-            "movement_mode":    self.player.movement_mode,
+-            "fps":              round(fps),
+-            "enemy_states":     [f"{i}:{e.state}"     for i, e in enumerate(self.enemies)],
+-            "enemy_directions": [f"{i}:{e.direction}" for i, e in enumerate(self.enemies)],
+-        }, size=16)
++            "pos":   self.enemies[0].position,
++            "movement_mode": self.player.movement_mode,
++            "fps": round(fps)
++        })
++
++        #debug waypoints
++        for wp in self.graph.waypoints:
++            wp.draw(self.surface)
++
++        # debug collision rects:
++        #for rect in self.collision_rects:
++        #   pygame.draw.rect(self.surface, (0, 255, 0), rect, 2)
+ 
+-    # ------------------------------------------------------------------
+-    # Load
+-    # ------------------------------------------------------------------
++        screen.blit(self.surface, settings.level_offset)
+ 
+     def _load_level(self, data: dict):
+-        """All objects are created in BASE coords — no scaling at load time."""
+         for (x, y, w, h) in data.get("walls", []):
+-            self.walls.append(Wall(x, y, w, h))
++            self.walls.append(Wall(*scale_rect(x, y, w, h)))
+ 
+         for (x, y, o) in data.get("doors", []):
+-            self.doors.append(Door(x, y, o))
+-
+-        for (x, y) in data.get("hiding_spots", []):
+-            self.hiding_spots.append(HidingSpot(x, y))
+-
+-        for (position, direction, patrol_points) in data.get("enemies", []):
+-            # position and patrol_points come from JSON already in base coords
+-            self.enemies.append(Enemy(position, direction, patrol_points))
+-
+-    # ------------------------------------------------------------------
+-    # Cursor
+-    # ------------------------------------------------------------------
+-
+-    def relative_cursor_pos(self):
+-        """Returns cursor position in BASE coords for debug display."""
+-        mouse_screen = pygame.Vector2(pygame.mouse.get_pos())
+-        mouse_level  = mouse_screen - pygame.Vector2(settings.level_offset)
+-        return settings.from_screen(mouse_level)
+-
+-    # ------------------------------------------------------------------
+-    # Interaction
+-    # ------------------------------------------------------------------
+-
++            sx, sy = int(x * settings.scale_x), int(y * settings.scale_y)
++            self.doors.append(Door(sx, sy, o))
++            
++    
+     def check_interaction(self):
+-        if self.player.interact_signal:
++        if self.player.interact_signal == True:
++            # distance check:
++            # if any interactable within range, e.g. doors, hiding spots, then interact with the closest one
+             target_candidates = {}
+             for i in self.interactables:
+-                distance_vec = self.player.position - pygame.Vector2(i.rect.center)
+-                if distance_vec.magnitude() <= 50:   # base units
+-                    if isinstance(i, Door):
+-                        target_candidates[i] = distance_vec.magnitude()
+-                    elif not self.graph.line_blocked(self.player.position,
+-                                                     pygame.Vector2(i.rect.center)):
+-                        target_candidates[i] = distance_vec.magnitude()
+-            if target_candidates:
+-                key = min(target_candidates, key=target_candidates.get)
++                distance_vec = self.player.position - i.rect.center # distance_vec will be type pygame.Vector2
++                if distance_vec.magnitude() <= 50:
++                    target_candidates[i] = distance_vec.magnitude()
++            if len(target_candidates) > 0:
++                key = min(target_candidates, key = target_candidates.get) # returns the interactable object with shortest dist. to player
+                 self.player.interact_signal = False
+                 return key
+-        self.player.interact_signal = False
+-        return False
+-
++    
+     def check_enemy_interactions(self):
+         for enemy in self.enemies:
+             for door in self.doors:
+                 dist = pygame.Vector2(door.rect.center).distance_to(enemy.position)
+-                if dist < 40 and not door.is_open:        # base units
+-                    door.interact(self.collision_rects)
+-                elif 50 < dist < 60 and door.is_open:     # base units
++                if dist < 40 and not door.is_open:
+                     door.interact(self.collision_rects)
++                elif dist > 50 and dist < 60 and door.is_open: # stops player interaction otherwise
++                    door.interact(self.collision_rects) 
++                   
++    def check_player_LoS(self, enemy):
++        if len(enemy.vision_points) < 3:
++            return False
++        # pygame.draw.polygon doesn't test — use this:
++        return self._point_in_polygon(self.player.position, enemy.vision_points)
++        
++    def _point_in_polygon(self, point: pygame.Vector2, polygon: list) -> bool:
++        """Ray casting algorithm — counts how many polygon edges a ray crosses."""
++        x, y = point
++        inside = False
++        n = len(polygon)
++        j = n - 1
++        for i in range(n):
++            xi, yi = polygon[i]
++            xj, yj = polygon[j]
++            if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi) + xi):
++                inside = not inside
++            j = i
++        return inside
++
++    def update_vision_cones(self):
++        for enemy in self.enemies:
++            if self.check_player_LoS(enemy):
++                enemy.vision_cone_colour = (64, 0, 0)
++            else:
++                enemy.vision_cone_colour = (64, 64, 0)
+ 
+     def handle_interaction(self):
+         interactable = self.check_interaction()
+         if interactable:
+-            if isinstance(interactable, Door):
+-                interactable.interact(self.collision_rects)
+-            elif isinstance(interactable, HidingSpot):
+-                self.player.hide(interactable)
+-                interactable.interact()
++            interactable.interact(self.collision_rects)
++            # the mesh does not depend on the door state – doors are always
++            # passable – so we never rebuild it.  collision_rects will still be
++            # updated for physics though.
+ 
+     def handle_input(self, event):
+         self.player.handle_input(event)
+ 
+-    # ------------------------------------------------------------------
+-    # Collision  (everything in BASE coords)
+-    # ------------------------------------------------------------------
+-
+     def _resolve_collisions(self):
+         for rect in self.collision_rects:
+             if self.player.rect.colliderect(rect):
+@@ -191,174 +201,74 @@ class Level:
+                 self.player.resolve_collision(offset)
+         for rect in self.collision_rects:
+             for enemy in self.enemies:
++                if abs(rect.centerx - enemy.rect.centerx) > 80:
++                    continue
+                 if enemy.rect.colliderect(rect):
+                     offset = self._calculate_pushout(enemy.rect, rect)
+                     enemy.resolve_collision(offset)
+-
+-    def _calculate_pushout(self, mover_rect: pygame.Rect, wall_rect: pygame.Rect):
+-        overlap_left   = wall_rect.right   - mover_rect.left
+-        overlap_right  = mover_rect.right  - wall_rect.left
+-        overlap_top    = wall_rect.bottom  - mover_rect.top
+-        overlap_bottom = mover_rect.bottom - wall_rect.top
+-
+-        min_x = overlap_left  if overlap_left  < overlap_right  else -overlap_right
+-        min_y = overlap_top   if overlap_top   < overlap_bottom else -overlap_bottom
+-
+-        return pygame.Vector2(min_x, 0) if abs(min_x) < abs(min_y) else pygame.Vector2(0, min_y)
+-
+-    # ------------------------------------------------------------------
+-    # Patrol path pre-calculation
+-    # ------------------------------------------------------------------
++                    
++        
++    def _calculate_pushout(self, player_rect: pygame.Rect, wall_rect: pygame.Rect):
++        overlap_left  = wall_rect.right  - player_rect.left
++        overlap_right = player_rect.right - wall_rect.left
++        overlap_top   = wall_rect.bottom - player_rect.top
++        overlap_bottom= player_rect.bottom - wall_rect.top
++
++        # Pick the smallest overlap — that's the axis to resolve on
++        min_x = overlap_left  if overlap_left < overlap_right  else -overlap_right
++        min_y = overlap_top   if overlap_top  < overlap_bottom else -overlap_bottom
++
++        if abs(min_x) < abs(min_y):
++            return pygame.Vector2(min_x, 0)
++        else:
++            return pygame.Vector2(0, min_y)
+ 
+     def precalculate_patrol_path(self):
++        # compute start and end wps for each enemy, call precalculate_patrol_path for each enemy:
+         for enemy in self.enemies:
++            # map patrol pts to waypoints:
+             enemy.waypoints = []
+-            for pt in enemy.patrol_points:   # base coords from JSON
+-                enemy.waypoints.append(self.graph.nearest_waypoint(pt))
++            for i in enemy.patrol_points:
++                enemy.waypoints.append(self.graph.nearest_waypoint(i))
+             enemy.precalculate_patrol_path()
+-            # patrol_path is already in BASE coords — no scaling needed
+-            if enemy.patrol_path:
+-                enemy.set_direction(enemy.patrol_path[enemy.patrol_ID])
+-
+-    # ------------------------------------------------------------------
+-    # Vision cones
+-    # ------------------------------------------------------------------
+-
+-    def check_player_LoS(self, enemy):
+-        if not self.player.hidden:
+-            if len(enemy.vision_points) < 3:
+-                return False
+-            return self._point_in_polygon(self.player.position, enemy.vision_points)
+-
+-    def _point_in_polygon(self, point: pygame.Vector2, polygon: list) -> bool:
+-        x, y = point
+-        inside = False
+-        n = len(polygon)
+-        j = n - 1
+-        for i in range(n):
+-            xi, yi = polygon[i]
+-            xj, yj = polygon[j]
+-            if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi) + xi):
+-                inside = not inside
+-            j = i
+-        return inside
+-
+-    def update_vision_cones(self, dt):
+-        for enemy in self.enemies:
+-            if self.check_player_LoS(enemy):
+-                enemy.transition_chase(self.player.position)
+-                enemy.LoS_timer = 0.5
+-            elif enemy.state == "chase":
+-                if enemy.LoS_timer <= 0 or self.graph.line_blocked(enemy.position,
+-                                                                     self.player.position):
+-                    search_path = self._compute_search_path(enemy)
+-                    enemy.transition_search(search_path)
+-                else:
+-                    enemy.transition_chase(self.player.position)
+-                enemy.LoS_timer -= dt
+-            elif enemy.state == "returning_to_patrol":
+-                if not enemy.return_path:
+-                    return_path = self._compute_return_path(enemy)
+-                    enemy.set_return_path(return_path)
++            enemy.set_direction()
+ 
+     def draw_vision_cones(self):
+-        """Build and draw cones; vision_points stay in BASE coords for LoS tests."""
+         self.cone_surface.fill((0, 0, 0))
+         for enemy in self.enemies:
+             enemy.vision_points = enemy.build_vision_cone(self.collision_rects)
+             if len(enemy.vision_points) >= 3:
+-                # Scale to level-surface pixels only here, for drawing.
+-                scaled = [
+-                    (p[0] * settings.scale_total_x, p[1] * settings.scale_total_y)
+-                    for p in enemy.vision_points
+-                ]
+                 self.cone_temp.fill((0, 0, 0))
+-                pygame.draw.polygon(self.cone_temp, enemy.vision_cone_colour, scaled)
++                pygame.draw.polygon(self.cone_temp, enemy.vision_cone_colour, enemy.vision_points)
+                 self.cone_surface.blit(self.cone_temp, (0, 0),
+-                                       special_flags=pygame.BLEND_ADD)
+-
+-    # ------------------------------------------------------------------
+-    # Pathfinding helpers  (all in BASE coords — no conversion needed)
+-    # ------------------------------------------------------------------
+-
+-    def _compute_search_path(self, enemy) -> list:
+-        if enemy.last_seen is None:
+-            return []
+-        start_wp = self.graph.nearest_waypoint(enemy.position)
+-        end_wp   = self.graph.nearest_waypoint(enemy.last_seen)
+-        path = a_star(start_wp, end_wp)
+-        return path if path else []   # list[Vector2] in BASE coords
+-
+-    def _compute_return_path(self, enemy) -> list:
+-        if not enemy.patrol_path:
+-            return []
+-        nearest_pt = min(enemy.patrol_path,
+-                         key=lambda pt: enemy.position.distance_to(pt),
+-                         default=None)
+-        if nearest_pt is None:
+-            return []
+-        start_wp = self.graph.nearest_waypoint(enemy.position)
+-        end_wp   = self.graph.nearest_waypoint(nearest_pt)
+-        path = a_star(start_wp, end_wp)
+-        return path if path else []   # list[Vector2] in BASE coords
+-
+-    # ------------------------------------------------------------------
+-    # Debug drawing helpers
+-    # ------------------------------------------------------------------
+-
+-    def draw_enemy_paths(self):
+-        def _scaled_pts(path):
+-            return [(int(p.x * settings.scale_total_x),
+-                     int(p.y * settings.scale_total_y)) for p in path]
++                                    special_flags=pygame.BLEND_ADD)
++                
+ 
+-        for enemy in self.enemies:
+-            if len(enemy.patrol_path) > 1:
+-                pts = _scaled_pts(enemy.patrol_path)
+-                pygame.draw.lines(self.surface, (0, 255, 0), False, pts, 3)
+-                for p in pts:
+-                    pygame.draw.circle(self.surface, (0, 255, 0), p, 4)
+-
+-            if len(enemy.search_path) > 1:
+-                pts = _scaled_pts(enemy.search_path)
+-                pygame.draw.lines(self.surface, (255, 255, 0), False, pts, 3)
+-                for p in pts:
+-                    pygame.draw.circle(self.surface, (255, 255, 0), p, 4)
+-
+-            if len(enemy.return_path) > 1:
+-                pts = _scaled_pts(enemy.return_path)
+-                pygame.draw.lines(self.surface, (0, 0, 255), False, pts, 3)
+-                for p in pts:
+-                    pygame.draw.circle(self.surface, (0, 0, 255), p, 4)
+-
+-    def draw_icons(self):
+-        player_states = ["sneak", "walk", "run"]
+-        state = player_states[self.player.movement_mode - 1]
+-        icon = pygame.image.load(os.path.join("assets", "icons", f"{state}.png")).convert_alpha()
+-        icon = pygame.transform.scale(icon, (32, 32))
+-        self.player.movement_icon_alpha = (self.player.movement_icon_alpha - 5) % 255
+-        icon.set_alpha(self.player.movement_icon_alpha)
+-        self.surface.blit(icon, (settings.true_level_res[0] - icon.get_width() * 1.5,
+-                                  icon.get_height() * 0.5))
+-
+-
+-# ===========================================================================
+-# Level objects  —  rects stored in BASE coords, scaled only in draw()
+-# ===========================================================================
++# fix nav polygon so that it takes points in order that are connected then form a polygon
+ 
+ class Wall:
+     def __init__(self, x, y, width, height):
+-        self.rect = pygame.Rect(x, y, width, height)   # BASE coords
+-
++        self.x = x
++        self.y = y
++        self.width = width
++        self.height = height
++        self.rect = self.build_wall()
++        
++    def build_wall(self):
++        return pygame.rect.Rect(self.x, self.y, self.width, self.height)
++    
+     def draw(self, surface):
+-        pygame.draw.rect(surface, (255, 255, 255), settings.scale_rect(self.rect))
+-
++        pygame.draw.rect(surface, (255, 255, 255), self.rect)
+ 
+ class Door:
+-    def __init__(self, x, y, o: int):
++    def __init__(self, x, y, o: int): # o is orientation: 0 - vertical, 1 - horizontal
+         self.is_open = True
+-        w = 5  if o == 0 else 50
+-        h = 50 if o == 0 else 5
+-        self.rect = pygame.Rect(x, y, w, h)            # BASE coords
++        self.width = 5 if o == 0 else 50
++        self.height = 50 if o == 0 else 5
++        self.width *= settings.scale_x
++        self.height *= settings.scale_y
++        self.rect = pygame.rect.Rect(x, y, self.width, self.height)
++        
+ 
+     def open(self, collision_rects):
+         if not self.is_open:
+@@ -366,12 +276,15 @@ class Door:
+             try:
+                 collision_rects.remove(self.rect)
+             except ValueError:
+-                print("Door rect not found in collision_rects")
+-
++                print("Door not added to collision_rects")
++            return collision_rects
++             
++    
+     def close(self, collision_rects):
+         if self.is_open:
+             self.is_open = False
+             collision_rects.append(self.rect)
++            return collision_rects
+ 
+     def interact(self, collision_rects):
+         if self.is_open:
+@@ -380,18 +293,24 @@ class Door:
+             self.open(collision_rects)
+ 
+     def draw(self, surface):
+-        colour = (113, 93, 76) if self.is_open else (75, 57, 41)
+-        pygame.draw.rect(surface, colour, settings.scale_rect(self.rect))
++        if self.is_open:
++            colour = (113, 93, 76)
++        else:
++            colour = (75, 57, 41)
++        pygame.draw.rect(surface, colour, self.rect) # change colour on open
++
++# consider a cell of rects size 
++
++
++
++# creating a level polygon
++# we can consider all corners of each rect, then consider a polygon of those rects. The border rects are uniform for all levels, so we can start with points (5, 5), (5, 715), (1075, 5), (1075, 715) in our polygon points. Consider all corners of rects within this polygon and add it to the points.
++
++
++# level dictionary: type of obj: Wall, for every attribute of wall, contains data.
++# should be able to create a level object from a dictionary.
++
+ 
+ 
+-class HidingSpot:
+-    def __init__(self, x, y):
+-        self.rect    = pygame.Rect(x, y, 32, 32)       # BASE coords
+-        self.in_use  = False
+ 
+-    def draw(self, surface):
+-        colour = (0, 128, 128) if self.in_use else (102, 178, 178)
+-        pygame.draw.rect(surface, colour, settings.scale_rect(self.rect))
+ 
+-    def interact(self):
+-        self.in_use = not self.in_use
+diff --git a/player.py b/player.py
+index f68f3aa..f80205e 100644
+--- a/player.py
++++ b/player.py
+@@ -1,8 +1,7 @@
+ import pygame
+ from settings import settings
+ 
+-# All speeds are in base units per second (base res = 1080×720).
+-SPEED = {1: 75, 2: 125, 3: 175}
++SPEED = {1: 75, 2: 200, 3: 350}
+ 
+ MOVEMENT_TRANSITIONS = {
+     1: (3, 2),
+@@ -14,57 +13,64 @@ MOVEMENT_TRANSITIONS = {
+ class Player(pygame.sprite.Sprite):
+     def __init__(self, position: pygame.Vector2, direction: pygame.Vector2):
+         super().__init__()
+-        self.position  = pygame.Vector2(position)   # BASE coords
++        self.position  = pygame.Vector2(position)
+         self.direction = pygame.Vector2(direction)
+         self.movement_mode = 2
+-        self.speed_mult = 1
+ 
+-        # --- hiding ---
+-        self.last_pos = None
+-        self.hidden = False
+-        self.colour = (60, 120, 220)
+-
+-        # --- visual ---
++        # --- Visual setup ---
+         self.base_image = self._build_image()
+-        # rect tracks BASE coords for collision detection
+-        self.rect = self.base_image.get_rect(center=(int(self.position.x),
+-                                                      int(self.position.y)))
++        self.rect = self.base_image.get_rect(center=(int(self.position.x), int(self.position.y)))
+         self.angle = 0
+-        self.movement_icon_alpha = 255
+ 
+-        # --- flags / signals ---
+-        self.move_condition  = False
++        # --- condiitons - accessed by level object --- 
++        self.move_condition = False
++
++        # --- signals where conditional logic is performed by level object --- 
+         self.interact_signal = False
+ 
+     def _build_image(self) -> pygame.Surface:
+-        # Image is built at screen pixel size so it looks correct on the
+-        # level surface — this is the ONE place scale touches player setup.
+-        size = max(1, int(16 * settings.scale_total_x))
+-        surface = pygame.Surface((size, size), pygame.SRCALPHA)
+-        pygame.draw.circle(surface, self.colour, (size // 2, size // 2), size // 2)
++        """Build the player's base sprite surface (facing right = 0 degrees)."""
++        BASE_SIZE = 16
++        BASE_RADIUS = BASE_SIZE / 2
++        size = int(BASE_SIZE * settings.scale_diagonal)
++        surface = pygame.Surface((size, size), pygame.SRCALPHA)  # SRCALPHA = transparent background
++
++        # Body
++        radius = int(BASE_RADIUS * settings.scale_diagonal)
++        pygame.draw.circle(surface, (60, 120, 220), (size // 2, size // 2), radius)
++        
++        # Direction indicator (nose) — points RIGHT by default (angle 0)
++        scale = settings.scale_diagonal
++        pygame.draw.polygon(surface, (255, 255, 255), [
++            (int(24 * scale), int(16 * scale)), 
++            (int(16 * scale), int(7 * scale)), 
++            (int(16 * scale), int(23 * scale))
++        ])
+         return surface
+ 
+     def _rotate_to_mouse(self):
+-        # mouse → screen → level surface → base coords
+-        mouse_screen = pygame.Vector2(pygame.mouse.get_pos())
+-        mouse_level  = mouse_screen - pygame.Vector2(settings.level_offset)
+-        mouse_base   = settings.from_screen(mouse_level)
++        mouse_pos = pygame.Vector2(pygame.mouse.get_pos()) - settings.level_offset
++        diff = mouse_pos - self.position
+ 
+-        diff = mouse_base - self.position
+         if diff.length() > 0:
+             self.direction = diff.normalize()
++            # angle_to measures from self -> target, negate because pygame Y-axis is flipped
+             self.angle = pygame.Vector2(1, 0).angle_to(self.direction)
+ 
+     def handle_input(self, event):
+-        self.handle_movement_mode(event)
+-        if event.type == pygame.KEYDOWN and event.key == pygame.K_w:
++        self.handle_movement_mode(event)  
++        if event.type == pygame.KEYDOWN and event.key == pygame.K_r:
+             self.move_condition = True
+-        if event.type == pygame.KEYUP and event.key == pygame.K_w:
++        if event.type == pygame.KEYUP and event.key == pygame.K_r:
+             self.move_condition = False
+         if event.type == pygame.KEYDOWN and event.key == pygame.K_e:
++            # check for interaction - handled by level:
++            # send an interaction signal to the Level object, which checks if a interactable is within the player's reachable radius - e.g. 50 pixels from player.center
+             self.interact_signal = True
++            # level tries interaction, if condition not met, resets interact signal to False     
+ 
+     def handle_movement_mode(self, event: pygame.event.Event):
++        """Call this from your event loop, passing each KEYDOWN event."""
+         if event.type == pygame.KEYDOWN:
+             if event.key in (pygame.K_LSHIFT, pygame.K_LCTRL):
+                 transitions = MOVEMENT_TRANSITIONS[self.movement_mode]
+@@ -72,34 +78,22 @@ class Player(pygame.sprite.Sprite):
+ 
+     def move(self, dt: float):
+         if self.move_condition:
+-            # All arithmetic in base coords — no scale needed here.
+-            self.position += self.direction * SPEED[self.movement_mode] * dt * self.speed_mult
++            self.position += self.direction * SPEED[self.movement_mode] * dt * settings.scale_diagonal
+             self.rect.center = (int(self.position.x), int(self.position.y))
+ 
+-    def hide(self, interactable):
+-        if not self.hidden:
+-            self.last_pos   = pygame.Vector2(self.position)
+-            self.speed_mult = 0
+-            # interactable.rect is in base coords, so this is safe
+-            self.position   = pygame.Vector2(interactable.rect.center)
+-            self.hidden     = True
+-        else:
+-            self.speed_mult = 1
+-            self.position   = self.last_pos
+-            self.last_pos   = None
+-            self.hidden     = False
+-
++    
+     def resolve_collision(self, offset: pygame.Vector2):
+         self.position += offset
+         self.rect.center = (int(self.position.x), int(self.position.y))
+ 
++
+     def draw(self, surface: pygame.Surface):
++        """Rotate fresh from base_image every draw call — no cumulative degradation."""
+         rotated = pygame.transform.rotate(self.base_image, -self.angle)
+-        # Only here do we scale: convert base position → level-surface pixels.
+-        screen_pos = settings.to_screen(self.position)
+-        rect = rotated.get_rect(center=(int(screen_pos.x), int(screen_pos.y)))
++        rect = rotated.get_rect(center=(int(self.position.x), int(self.position.y)))
+         surface.blit(rotated, rect)
+ 
+     def update(self, dt: float):
+         self._rotate_to_mouse()
+         self.move(dt)
++
+diff --git a/settings.py b/settings.py
+index 1f88094..12a19ad 100644
+--- a/settings.py
++++ b/settings.py
+@@ -2,7 +2,7 @@ from utils import *
+ 
+ 
+ # --- default window settings ---
+-DEF_WIDTH, DEF_HEIGHT = 1200, 800
++DEF_WIDTH, DEF_HEIGHT = 1200, 800 # default
+ BASE_LEVEL_RES = (1080, 720)
+ 
+ 
+@@ -12,58 +12,36 @@ class Settings:
+     def __init__(self):
+         self.width, self.height = DEF_WIDTH, DEF_HEIGHT
+         self.res = (self.width, self.height)
+-        self.is_fullscreen = False
++        self.is_fullscreen = True
+         self.levelScalar = 0.9
+         self.FPS = 120
+-        self.flags = 0
++        self.flags = 0 # integer needed as error pops up with none.
++
+ 
+     def calc_level_res(self):
+-        self.level_res = level_res(self.levelScalar, (DEF_WIDTH, DEF_HEIGHT))
+-        self.level_offset = level_offset(self.levelScalar, (DEF_WIDTH, DEF_HEIGHT))
++        self.level_res = level_res(self.levelScalar, self.res)
++        self.level_offset = level_offset(self.levelScalar, self.res)
+         self.scale_x = self.level_res[0] / BASE_LEVEL_RES[0]
+         self.scale_y = self.level_res[1] / BASE_LEVEL_RES[1]
+-        self.true_level_res = level_res(self.levelScalar, self.res)
+ 
++        
++        
++        # Calculate diagonal scale factor for sprites
++        # Uses the ratio of diagonals between actual and base resolution
+         import math
+         base_diagonal = math.sqrt(BASE_LEVEL_RES[0]**2 + BASE_LEVEL_RES[1]**2)
+-        current_diagonal = math.sqrt(self.true_level_res[0]**2 + self.true_level_res[1]**2)
++        current_diagonal = math.sqrt(self.level_res[0]**2 + self.level_res[1]**2)
+         self.scale_diagonal = current_diagonal / base_diagonal
+-
+-        self.scale_total_x = self.true_level_res[0] / BASE_LEVEL_RES[0]
+-        self.scale_total_y = self.true_level_res[1] / BASE_LEVEL_RES[1]
+-
+-        print(f"scale_x: {self.scale_total_x}, scale_y: {self.scale_total_y}, scale_diagonal: {self.scale_diagonal}")
++        
++        print(f"scale_x: {settings.scale_x}, scale_y: {settings.scale_y}, scale_diagonal: {settings.scale_diagonal}")
+ 
+     def init_resolution(self):
+         if self.is_fullscreen:
+-            self.flags = pygame.FULLSCREEN
++            self.flags = pygame.FULLSCREEN|pygame.HWSURFACE 
+             self.res = pygame.display.get_desktop_sizes()[0]
+         self.calc_level_res()
+ 
+-    # ------------------------------------------------------------------
+-    # Render helpers  (base coords  ↔  level-surface pixel coords)
+-    # Only call these inside draw() methods — never in game logic.
+-    # ------------------------------------------------------------------
+-
+-    def to_screen(self, pos) -> pygame.Vector2:
+-        """Base-res position  →  level-surface pixel coords."""
+-        return pygame.Vector2(pos[0] * self.scale_total_x,
+-                              pos[1] * self.scale_total_y)
+ 
+-    def scale_rect(self, rect: pygame.Rect) -> pygame.Rect:
+-        """Base-res Rect  →  level-surface pixel Rect."""
+-        return pygame.Rect(
+-            rect.x      * self.scale_total_x,
+-            rect.y      * self.scale_total_y,
+-            rect.width  * self.scale_total_x,
+-            rect.height * self.scale_total_y,
+-        )
+-
+-    def from_screen(self, screen_pos) -> pygame.Vector2:
+-        """Level-surface pixel position  →  base-res coords."""
+-        return pygame.Vector2(screen_pos[0] / self.scale_total_x,
+-                              screen_pos[1] / self.scale_total_y)
+-
+-
+-# --- singleton ---
++# --- settings instance
+ settings = Settings()
++
+diff --git a/utils.py b/utils.py
+index 952f302..32ab7f7 100644
+--- a/utils.py
++++ b/utils.py
+@@ -31,10 +31,6 @@ def level_creation(fields: dict, destination: str):
+             return float(raw)
+         elif expected_type == list:
+             return json.loads(raw)  # e.g. "[1, 2, 3]"
+-        elif expected_type == tuple:
+-            raw = raw.strip("()")
+-            raw = raw.split(",")
+-            return tuple([int(i) for i in raw])
+         else:
+             return raw  # str fallback
+ 
+@@ -59,15 +55,15 @@ def level_creation(fields: dict, destination: str):
+                     print(f"  Invalid input, expected {expected_type.__name__}. Try again.")
+         new_entries.append(entry)
+ 
+-    # Load existing data if file exists, else create file 
+-    if not os.path.exists(destination):
+-        with open(destination, 'w') as f:
+-            json.dump({}, f, indent=4)
+-    with open(destination, "r") as f:
+-        content = f.read().strip()
+-        existing = json.loads(content) if content else []
+-    if count > 0:
+-        existing.extend(new_entries)
++    # Load existing data if file exists
++    if os.path.exists(destination):
++        with open(destination, "r") as f:
++            content = f.read().strip()
++            existing = json.loads(content) if content else []
++    else:
++        existing = []
++
++    existing.extend(new_entries)
+ 
+     with open(destination, "w") as f:
+         json.dump(existing, f, indent=4)
+@@ -87,64 +83,33 @@ door_fields = {
+     "orientation": int,
+ }
+ 
+-enemy_fields = {
+-    "position": tuple,
+-    "direction": tuple,
+-    "patrol_points": list
+-}
+-
+-hiding_spot_fields = {
+-    "x": int,
+-    "y": int
+-}
+-
+ def load_level(level_id: int) -> dict:
+         """
+-        Loads wall, door, and enemy data from JSON files for a given level ID.
++        Loads wall and door data from JSON files for a given level ID.
+         Returns a dict compatible with Level._load_level()
+-        
+-        Expected JSON files:
+-        - levels/level_XX_walls.json: Wall geometry
+-        - levels/level_XX_doors.json: Door positions and orientations
+-        - levels/level_XX_enemies.json: Enemy spawns and patrol points (optional)
+         """
+         def read_json(path):
+-            if os.path.exists(path):
+-                with open(path, "r") as f:
+-                    content = f.read().strip()
+-                    return json.loads(content) if content else []
+-            return []
++            with open(path, "r") as f:
++                content = f.read().strip()
++                return json.loads(content) if content else []
+ 
+-        # Load structural data (walls and doors)
+         walls_raw = read_json(f"levels/level_{level_id:02d}_walls.json")
+         doors_raw = read_json(f"levels/level_{level_id:02d}_doors.json")
+-        hiding_spots_raw = read_json(f"levels/level_{level_id:02d}_hiding_spots.json")
+-        enemies_raw = read_json(f"levels/level_{level_id:02d}_enemies.json")
+ 
+-        walls = [(e["x"], e["y"], e["width"], e["height"]) for e in walls_raw] if walls_raw else []
+-        doors = [(e["x"], e["y"], e["orientation"]) for e in doors_raw] if doors_raw else []
+-        hiding_spots = [(e["x"], e["y"]) for e in hiding_spots_raw] if hiding_spots_raw else []
+-        enemies = [(e["position"], e["direction"], e["patrol_points"]) for e in enemies_raw] if enemies_raw else []
++        walls = [(e["x"], e["y"], e["width"], e["height"]) for e in walls_raw]
++        doors = [(e["x"], e["y"], e["orientation"]) for e in doors_raw]
+ 
+         return {
+             "walls": walls,
+             "doors": doors,
+-            "enemies": enemies,
+-            "hiding_spots": hiding_spots
+         }
+ 
+-    
+-
+-
+ #level_creation(wall_fields, "levels/level_01_walls.json")
+ #level_creation(door_fields, "levels/level_01_doors.json")
+-#level_creation(enemy_fields, "levels/level_01_enemies.json")
+-#level_creation(hiding_spot_fields, "levels/level_01_hiding_spots.json")
+-
+ 
+ # --- draw debug ---
+ 
+-def draw_debug(surface, data: dict, pos=(10, 10), size=15, colour=(0, 255, 0)):
++def draw_debug(surface, data: dict, pos=(10, 10), size=10, colour=(0, 255, 0)):
+     """
+     data: any dict of label->value pairs you want displayed
+     """
+@@ -156,5 +121,3 @@ def draw_debug(surface, data: dict, pos=(10, 10), size=15, colour=(0, 255, 0)):
+         text = font.render(f"{label}: {value}", True, colour)
+         surface.blit(text, (x, y))
+         y += size + 2
+-
+-

@@ -1,9 +1,3 @@
-## Overview
-
-This is a **top-down 2D game** built with Pygame. It follows a clean, modular architecture split across several files. Here's a breakdown of each system:
-
----
-
 ### Entry Point — `main.py`
 
 Creates a `GameStateManager` instance and calls `run()`. Simple and clean — all logic is delegated elsewhere.
