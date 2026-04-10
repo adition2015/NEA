@@ -98,9 +98,7 @@ class Enemy(pygame.sprite.Sprite):
         self.return_path = []
         self.search_path = []
         self.direction = pygame.Vector2(0, 0)
-
-    
-        
+  
 
     # ------------------------------------------------------------------
     # Patrol

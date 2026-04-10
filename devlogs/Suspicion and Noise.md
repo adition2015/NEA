@@ -70,16 +70,6 @@ check if value above 50, multiply intensity by suspicion conversion constant, ad
 suspicion decay, every frame, decay suspicion by  suspicion decay constant * dt
 
 
-
-
-
-
-
-
-
-
-
-
 Functions to include:
 
 - dt is a measure of time between frames, informs how often to perform functions.

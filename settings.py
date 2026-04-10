@@ -13,7 +13,6 @@ class Settings:
         self.width, self.height = DEF_WIDTH, DEF_HEIGHT
         self.res = (self.width, self.height)
         self.is_fullscreen = True
-        self.levelScalar = 0.9
         self.FPS = 120
         self.flags = 0
 
@@ -41,11 +40,9 @@ class Settings:
         self.scale_total_x = scale
         self.scale_total_y = scale  # same value — no stretching
 
-
     def calc_true_res(self):
         self.scale_true_x = self.res[0] / BASE_LEVEL_RES[0]
         self.scale_true_y = self.res[1] / BASE_LEVEL_RES[1]
-
 
     def init_resolution(self):
         self.res = (self.width, self.height)
@@ -54,11 +51,6 @@ class Settings:
             self.res = pygame.display.get_desktop_sizes()[0]
         self.calc_level_res()
         self.calc_true_res()
-
-    # ------------------------------------------------------------------
-    # Render helpers  (base coords  ↔  level-surface pixel coords)
-    # Only call these inside draw() methods — never in game logic.
-    # ------------------------------------------------------------------
 
     def to_screen(self, pos) -> pygame.Vector2:
         """Base-res position  →  level-surface pixel coords."""
