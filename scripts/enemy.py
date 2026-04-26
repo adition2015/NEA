@@ -170,10 +170,9 @@ class Enemy(pygame.sprite.Sprite):
     # Investigate
     # ------------------------------------------------------------------
 
-    def transition_investigate(self, noise):
+    def transition_investigate(self):
         if self.state == "chase":
             return
-        self.last_heard = noise
         self.state = "investigate"
         self.investigation_timer = 10 # seconds
         # self.vision_cone_colour = (64, 32, 0)
@@ -303,7 +302,6 @@ class Enemy(pygame.sprite.Sprite):
         self.state = "patrol"
         # self.vision_cone_colour = (64, 64, 0)
         self.icon = None
-        self.target_angle = None
         self.player_obs   = None
         self.last_seen    = None
         self.return_path  = []
@@ -358,8 +356,10 @@ class Enemy(pygame.sprite.Sprite):
         vec = pygame.Vector2(target) - self.position
         if vec.length() > 0:
             self.direction = vec.normalize()
+            self.target_angle = self.direction.angle_to((1, 0))
         else:
             self.direction = pygame.Vector2(0, 0)
+            
 
     def resolve_collision(self, offset: pygame.Vector2):
         self.position += offset

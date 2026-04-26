@@ -63,6 +63,7 @@ class GameStateManager:
             self.menus.draw(self.screen)        # pop-ups sit on top of whatever is there
         draw_debug(self.screen, {
             "FPS": f'{round(fps)}',
+            "System State" : f"{self.game_state}"
         })
         pygame.display.flip()
 

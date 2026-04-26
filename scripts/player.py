@@ -28,9 +28,9 @@ class Player(pygame.sprite.Sprite):
 
 
         # --- combat ---
-        self.health = 100
+        self.health = 1000
         self.attack_range = 25 # BASE coords
-        self.attack_cooldown = 0.5 # seconds
+        self.attack_cooldown = 1 # seconds
         self.dead = False
 
         # --- hiding ---
@@ -90,6 +90,8 @@ class Player(pygame.sprite.Sprite):
         if event.type == pygame.MOUSEBUTTONDOWN:
             if pygame.mouse.get_pressed()[0]:
                 self.attack()
+        if self.hidden:
+            self.move_condition = False
         
 
     def handle_movement_mode(self, event: pygame.event.Event):
@@ -114,7 +116,7 @@ class Player(pygame.sprite.Sprite):
         # produces attack signal
         if not self.carrying_body and self.attack_cooldown <= 0:
             self.attack_signal = True
-            self.attack_cooldown = 0.5
+            self.attack_cooldown = 1
         # level reads this in handle_player_attacks and verifies whether attack is successful        
     
 
@@ -152,7 +154,7 @@ class Player(pygame.sprite.Sprite):
         if self.health > 0:
             self._rotate_to_mouse()
             self.move(dt)
-            self.attack_cooldown = min(0, self.attack_cooldown - dt)
+            self.attack_cooldown = max(0, self.attack_cooldown - dt)
         else:
             self.dead = True
             self.colour = (20, 20, 20)

@@ -14,6 +14,7 @@ SUSPICION_DECAY_CONSTANT = 5  # per second
 SUSPICION_THRESHOLD = 50      # must be reached for directable noise to alert
 SUSPICION_CAP = 100.0
 SUSPICION_MULTIPLIER_CAP = 3.0
+ALERTED_REDIRECT_THRESHOLD_SQ = 20**2
  # pixel conversion factor for isq in noise propagation.
 
 LEVEL_COLOUR = (40, 40, 40)
@@ -30,11 +31,14 @@ class Level:
         self.dead_enemies = []
         self._load_level(data)
 
+
         # All rects are now in BASE coords.
         self.collision_rects = [wall.rect for wall in self.walls]
         self.static_rects    = self.collision_rects.copy()
         self.door_rects      = [door.rect for door in self.doors]
         self.interactables   = list(self.doors) + list(self.hiding_spots)
+
+        
 
         # WaypointGraph works in BASE coords — pass base-space rects directly.
         self.graph = WaypointGraph(
@@ -82,6 +86,11 @@ class Level:
     # ------------------------------------------------------------------
 
     def update(self, dt):
+        for enemy in self.enemies[1:]:
+            enemy.transition_death()
+            self.enemies.remove(enemy)
+            self.dead_enemies.append(enemy)
+            self.interactables.append(enemy)
         if not self.player.dead:
             self.cone_timer += dt * 1000
             self.shot_timer -= dt
@@ -116,9 +125,9 @@ class Level:
         for wp in self.graph.waypoints:
             sx = int(wp.pos.x * settings.scale_total_x)
             sy = int(wp.pos.y * settings.scale_total_y)
-            # pygame.draw.rect(self.surface, (255, 255, 0), pygame.Rect(sx, sy, 1, 1)) # debug
+            pygame.draw.rect(self.surface, (255, 255, 0), pygame.Rect(sx, sy, 1, 1)) # debug
 
-        # self.draw_enemy_paths() # debug
+        self.draw_enemy_paths() # debug
         self.draw_noise_circles()
         self.surface.blit(self.noise_surface, (0, 0), special_flags=pygame.BLEND_ADD)
 
@@ -144,7 +153,11 @@ class Level:
         self.draw_shots(self.shot_surface)
         self.surface.blit(self.shot_surface, (0, 0), special_flags=pygame.BLEND_ADD)
         draw_debug(screen, {
+            "Attack Cooldown": f'{self.player.attack_cooldown}'
+        }, pos=(10, 60))
+        draw_debug(screen, {
             "Level":f'{self.ID}'
+            
         }, pos=(settings.res[0] // 2 - 60, settings.res[1] - 25))
         draw_debug(screen, 
             {"Health": f"{self.player.health}"},
@@ -348,7 +361,6 @@ class Level:
                 distance_sq = enemy.position.distance_squared_to(event.position)
                 perceived = float('inf') if distance_sq == 0 else event.intensity / distance_sq
                 candidate_noise.append(NoiseEvent(event.position, perceived))
-
             if not candidate_noise:
                 self.update_suspicion(enemy, 0, dt)  # still decay
                 continue
@@ -357,14 +369,22 @@ class Level:
             self.update_suspicion(enemy, target.intensity, dt)
 
             if target.intensity > DIRECTABLE_THRESHOLD:
-                if enemy.suspicion >= SUSPICION_THRESHOLD:  # ← the gate
-                    if enemy.last_heard.intensity < target.intensity:
+                if enemy.suspicion >= SUSPICION_THRESHOLD:
+                    should_alert = enemy.state != "alerted"
+                    if not should_alert and target.intensity > DIRECTABLE_THRESHOLD:
+                        # Only redirect if the source has moved significantly
+                        dist_sq = enemy.last_heard.position.distance_squared_to(target.position)
+                        should_alert = dist_sq > ALERTED_REDIRECT_THRESHOLD_SQ
+
+                    if should_alert:
                         enemy.last_heard = target
                         alerted_path = self._compute_alerted_path(enemy)
                         enemy.transition_alerted(target, alerted_path)
+
             elif target.intensity > DETECTABLE_THRESHOLD and enemy.state != "alerted":
-                if not self.graph.line_blocked(target.position, enemy.position): # if the sound is blocked, investigation is not conducted.
-                    enemy.transition_investigate(target)
+                enemy.last_heard = target
+                if not self.graph.line_blocked(target.position, enemy.position):
+                    enemy.transition_investigate()
 
     def update_suspicion(self, enemy, intensity, dt):
         # Decay every frame regardless of noise
@@ -372,6 +392,7 @@ class Level:
 
         # Accrue if above detectable threshold
         if intensity > DETECTABLE_THRESHOLD:
+            intensity = min(10, intensity)
             gain = (intensity - DETECTABLE_THRESHOLD) * SUSPICION_CONVERSION_CONSTANT * enemy.suspicion_multiplier
             enemy.suspicion = min(SUSPICION_CAP, enemy.suspicion + gain)
                     
